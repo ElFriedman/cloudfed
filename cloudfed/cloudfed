@@ -1,0 +1,2 @@
+#!/bin/bash
+java --enable-preview -jar `dirname "$0"`/target/cloudfed.jar "$@"
