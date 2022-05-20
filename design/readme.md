@@ -70,21 +70,21 @@ Consider the following notations:
 - n = number of servers
 - $\mu$ = mean service rate
 - Q = maximumly allowed mean wait time
-- Ba = batch arrival probabilities (probabilities for numbers of requests to arrive simutainously)
+- Ba = batch arrival probabilities (probabilities for numbers of requests to arrive simultaneously)
 
 
 ```
 Class Arrival(interval_fxn, Ba=[1], mst=1)
 ```
 - Describes an arrival process with distribution of inter-arrival time, batch arrival probabilities, and the mean service time of each request.
-- interval_fxn describes the interarrival process. By default, the interarrival time should follow an exponential distibution with a mean arrival rate $\lambda$.
+- interval_fxn describes the interarrival process. By default, the interarrival time should follow an exponential distribution with a mean arrival rate $\lambda$.
 
 ```
 Class Service(servers, service_fxn, Q)
 ```
 - Describes service rates of all servers and their queueing spaces
 - service_fxn describes the service rate where the service time for a unit of workload. Default to a constant.
-- Q describes the maximunly allowed queueing time before service
+- Q describes the maximally allowed queueing time before service
 
 ```
 Class Cloud(arrival, service, shared_servers)
@@ -111,7 +111,7 @@ When describing overflow, we need the number of request per unit of time and the
 
 We are also interested in
 - service wait time (time from a request entering a queue to getting service)
-- service completion time (time from searvice begin and service end)
+- service completion time (time from service begin and service end)
 - simulation time (performance of the simulator)*
 
 
@@ -120,11 +120,11 @@ For each request, we need to label the workload stream origin, so that we can ge
 
 ## Project Partition
 
-The above describes the core library of the simulator. To produce results/report for a set of federations and their cloud settings, we consider the following 3 parts of the workflow pipline.
+The above describes the core library of the simulator. To produce results/report for a set of federations and their cloud settings, we consider the following 3 parts of the workflow pipeline.
 
 ### Workload Generator
-Produce ramdomized input workload to the simulator.
-- Save (serialize) workload sequnce so that the simulator can reuse the same arrival streams to obtain and average result.
+Produce randomized input workload to the simulator.
+- Save (serialize) workload sequence so that the simulator can reuse the same arrival streams to obtain and average result.
 - Create a set (a large fixed number) of workload inputs for each federation setting. (Randomized)
 
 ### Simulator Runner
@@ -141,7 +141,7 @@ Generate metrics and report from saved simulator output.
 
 We consider correctness as the essential objective of testing. Both correctness of the implementation, closeness to the numerical result, and in computation range such as inputting extremely big and small numbers. 
 
-For correctness, we compare simuated result with the numerical result from Prism. Since Prism can model upto homogeneous workload with upto 5 cloud federation, each cloud with 50 servers, we can compare our simulation with Prism's result. Prism can produce simulation as well as numerical results. While comparing simulated result is hard, we can focus on the average on the reapeated experiment to compare to the numerical one.
+For correctness, we compare simulated result with the numerical result from Prism. Since Prism can model upto homogeneous workload with upto 5 cloud federation, each cloud with 50 servers, we can compare our simulation with Prism's result. Prism can produce simulation as well as numerical results. While comparing simulated result is hard, we can focus on the average on the repeated experiment to compare to the numerical one.
 
 Test against precision in big and small numbers.*
 
@@ -154,7 +154,7 @@ Avoid using the big number libraries to avoid slowdown. We still need to ensure 
 
 Consider methods to detect steady state (find the steady iteration) 
 - Checkout Ross' [simulation book](http://www.ru.ac.bd/wp-content/uploads/sites/25/2019/03/308_01_Ross_Simulation_Fifth_Ed.pdf).
-- Optionally, use a thershold for variance of a moving window. 
+- Optionally, use a threshold for variance of a moving window. 
 
 https://github.com/gonum
 
@@ -163,15 +163,22 @@ https://en.wikipedia.org/wiki/Poisson_distribution#Generating_Poisson-distribute
 
 ## Shapley Value Wrapper
 
-To compute the Shapley Value of a federation, we need to obtain the overflow of the federation under every subgroup of clouds. Under each subgroup federation, we compute the average overflow after system stablizes. Using the performance outputs, we obtian the Shapley value of each cloud.
+To compute the Shapley Value of a federation, we need to obtain the overflow of the federation under every subgroup of clouds. Under each subgroup federation, we compute the average overflow after system stabilizes. Using the performance outputs, we obtain the Shapley value of each cloud.
 
 
 ## Game Theory Wrapper
 
-Using the similar concept obtianing stable performance result, we can adjust sharing streatagies of clouds in the federation. 
+Using the similar concept obtaining stable performance result, we can adjust sharing strategies of clouds in the federation. 
 
+## Extra
+- For each cloud, we should enable several arrival streams (mostly independent). (Our current assumption is to have each cloud with a single arrival stream, and the heterogeneous arrival processes are at the federation level)
+- For each cloud, we should allow heterogeneous service rates. This is to simulate servers of different speeds. We do not consider server and workload affinity since Shapley Value of those can be added. (Our current assumption only allows heterogeneous service times at the federation level)
+- Allow different request size distribution (exponential, uniform, Bernoulli)
+- Allow Markov-modulated Poisson processes (MMPP), specifically 2 state MMPP to model day and night time job arrivals.
+- Allow request to move to faster server during execution when available. (This is important for the proof of federation with heterogeneous service rates)
 
 ## Open Questions
 
-- What is the best way to determine the earliest iteration when the system stablizes. 
-- How to test the precision of the simulator? What if the inputs are very large or small values.
+- What is the best way to determine the earliest iteration when the system stabilizes?
+- How to test the precision of the simulator? What if the inputs are very large or small values?
+- For workloads with non-exponentially distributed service time, what is a good way to guarantee QoS? (change the current setup where  we reject workload in a queue when they have spent more than permitted amount of time waiting?) 
