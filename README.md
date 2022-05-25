@@ -55,6 +55,14 @@ Computes relevant metrics.
 
 ## Development
 
+### Background Knowledge
+
+- B. Song, M. Paolieri, L. Golubchik. [Performance and Revenue Analysis of Hybrid Cloud Federations with QoS Requirements](https://drive.google.com/file/d/1s06SPMAeulnwM_YeARgvUggQ4lM6izJS/view?usp=sharing), 2022
+- Michael Altmann. [Writing a Discrete Event Simulation: Ten Easy Lessons](https://web.archive.org/web/20210506173656/https://users.cs.northwestern.edu/~agupta/_projects/networking/QueueSimulation/mm1.html), 2001
+- Kyle Siegrist. [Pareto distribution](https://www.randomservices.org/random/special/Pareto.html)
+- E. Smirni. [Poisson Process](https://www.cs.wm.edu/~esmirni/Teaching/cs526/section7.3.pdf), [Confidence Intervals](https://www.cs.wm.edu/~esmirni/Teaching/cs526/section8.1.pdf), [Batch Means](https://www.cs.wm.edu/~esmirni/Teaching/cs526/section8.4.pdf), [M/M/1 Metrics](https://www.cs.wm.edu/~esmirni/Teaching/cs526/section8.5.pdf)
+- L. Leemis and S. Park. [Discrete Event Simulation: A First Course](https://www.google.com/search?q=%22Discrete+Event+Simulation+-+A+First+Course+-+Lemmis+Park%22), 2004
+
 ### Setup
 
 To work on this project:
@@ -89,7 +97,9 @@ Please check out modern Java features and libraries including:
 - [Executor Services](https://jenkov.com/tutorials/java-util-concurrent/executorservice.html)
 - [AutoValue with Builders](https://github.com/google/auto/blob/master/value/userguide/builders.md)
 - [MsgPack](https://github.com/msgpack/msgpack-java/blob/develop/msgpack-core/src/test/java/org/msgpack/core/example/MessagePackExample.java)
-
+- [Enhanced Pseudo-Random Number Generators](https://openjdk.java.net/jeps/356)
+- [BigDecimal](https://docs.oracle.com/en/java/javase/18/docs/api/java.base/java/math/BigDecimal.html)
+- [PriorityQueue](https://docs.oracle.com/en/java/javase/18/docs/api/java.base/java/util/PriorityQueue.html)
 
 ### Running Tests and Checking Coverage
 
