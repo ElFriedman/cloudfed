@@ -36,6 +36,7 @@ public class Cloud {
         eventQueue = new PriorityQueue<Request>();
         serverPool = new ServerPool(workRate, serverCount);
         this.QoS = QoS;
+        
         requestsServiced = 0;
         requestsRejected = 0;
         totalRequests = 0;
@@ -44,8 +45,14 @@ public class Cloud {
     public void run (BigDecimal endTime) {
         BigDecimal time = new BigDecimal(0);
         eventQueue.add(wGenerator.generateRequest(time));
-        while (endTime.compareTo(time)>0) { // check >/<
-            Request r = eventQueue.remove();
+
+        System.out.println("time = " + time);
+        System.out.println(eventQueue);
+        System.out.println();
+
+        while (endTime.compareTo(time) > 0 ) {
+            Request r = eventQueue.remove();            
+            time = new BigDecimal(r.getDueDate().toString());
             if (r.inService()) { //if service of this request just finished
                 Request req = serverPool.finishRequest(r, time);
                 if (req != null) {
@@ -62,12 +69,18 @@ public class Cloud {
                 } else {
                     rejectRequest(r);
                 }
+                eventQueue.add(wGenerator.generateRequest(time));
             }
+
+            System.out.println("time = " + time);
+            System.out.println(eventQueue);
+            System.out.println();
         }
         System.out.println("After time " + time);
         System.out.println(requestsRejected + " rejected requests");
         System.out.println(requestsServiced + " serviced requests");
-        System.out.println((requestsRejected + requestsServiced) + " combined requests");
+        System.out.println(serverPool.serversInUse() + " servers being served");
+        System.out.println((requestsRejected + requestsServiced + serverPool.serversInUse()) + " combined requests");
         System.out.println(totalRequests + " total requests (should be same as ^)");
         System.out.println("rejection rate: " + (double)requestsRejected/(double)totalRequests);
     
@@ -80,8 +93,7 @@ public class Cloud {
 
     public boolean crosscheckUptimes(BigDecimal time) {
         for (Server s : serverPool.getServers()) {
-            BigDecimal t1 = s.uptime1();
-            if(!t1.equals(s.uptime2(time))) {
+            if(!s.uptime1().equals(s.uptime2(time))) {
                 return false;
             }
         }
@@ -98,4 +110,8 @@ public class Cloud {
         }
     }
 
+    public static void main (String [] args ) {
+        Cloud cloud9 = new Cloud(2, 3, 4, 8, 1, 7, 0, 0);
+        cloud9.run(new BigDecimal(1000));
+    }
 }

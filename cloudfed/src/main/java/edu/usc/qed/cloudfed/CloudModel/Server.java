@@ -34,9 +34,9 @@ public class Server {
         } 
         inUse = true;
         this.r = r;
-        downtime.add(time);
-        downtime.subtract(lastTime);
-        lastTime = new BigDecimal(time.toString());
+
+        downtime = downtime.add(time).subtract(lastTime);
+        lastTime = time;
     }
 
     public void fire (BigDecimal time) {
@@ -45,20 +45,17 @@ public class Server {
         }
         inUse = false;
         r = null;
-        uptime.add(time);
-        uptime.subtract(lastTime);
-        lastTime = new BigDecimal(time.toString());
+
+        uptime = uptime.add(time).subtract(lastTime);
+        lastTime = time;
     }
 
-    public BigDecimal uptime1 (){
-        downtime.add(uptime);
-        uptime.divide(uptime);
-        return uptime;
+    public BigDecimal uptime1 () {
+        return uptime.divide(uptime.add(downtime));
     }
 
     public BigDecimal uptime2 (BigDecimal time) {
-        uptime.divide(time);
-        return uptime;
+        return uptime.divide(time);
     }
 }
 

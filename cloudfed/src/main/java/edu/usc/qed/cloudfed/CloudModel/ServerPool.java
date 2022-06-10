@@ -19,6 +19,8 @@ public class ServerPool {
 
     //constructor for homogenous work rate
     public ServerPool (double workRate, int serverCount) {
+        servers = new ArrayList<Server>();
+        freeServers = new LinkedList<Server>();
         if (workRate <= 0) {
             System.out.println("Work rate must > 0");
         }
@@ -37,7 +39,9 @@ public class ServerPool {
         if (freeServers.isEmpty()) {
             requestQueue.add(r);
 
-            r.setDueDate(predictedDueDates.poll().getDueDate());
+            BigDecimal newDueDate = predictedDueDates.poll().getDueDate().add(new BigDecimal(r.getJobSize()/workRate));
+            r.setDueDate(newDueDate);
+            r.waitedInQueue();
             predictedDueDates.add(r);
 
             return null;
@@ -51,8 +55,9 @@ public class ServerPool {
         }
     }
 
+    //omniscient
     public boolean underCapacity(double QoS, BigDecimal time) {
-        if (freeServers.isEmpty()) {
+        if (!freeServers.isEmpty()) {
             return true;
         }
         if (predictedDueDates.peek().getDueDate().compareTo(new BigDecimal(QoS))>0) {
@@ -62,11 +67,6 @@ public class ServerPool {
 
     }
     
-    //omniscient capacity, given homogenous servers
-    public double getCapacity () {
-        return 0;
-        //TO DO
-    }
 
     public Request finishRequest (Request r, BigDecimal time) {
         Server s = r.deService(time);
@@ -81,5 +81,9 @@ public class ServerPool {
     }
     public ArrayList<Server> getServers() {
         return servers;
+    }
+
+    public int serversInUse() {
+        return servers.size()-freeServers.size();
     }
 }

@@ -13,9 +13,8 @@ public class WorkloadGenerator {
         this.jGenerator = jobGenerator;
     }
 
-    public Request generateRequest (BigDecimal currTime) {
-        BigDecimal iaTime = new BigDecimal(arrProcess.getInterarrivalTime());
-        iaTime.add(currTime);
+    public Request generateRequest (BigDecimal time) {
+        BigDecimal iaTime = time.add(new BigDecimal(arrProcess.getInterarrivalTime()));
         return new Request (iaTime, jGenerator.getJobSize());
     }
 }

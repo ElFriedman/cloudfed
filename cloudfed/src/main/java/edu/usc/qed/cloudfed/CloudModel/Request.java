@@ -5,6 +5,7 @@ public class Request implements Comparable {
     private BigDecimal dueDate; 
     private double jobSize; // perhaps should be BigDecimal
     private boolean inService;
+    private boolean waitedInQueue = false;
     // if inService is false, time is arrivalTime
     // if inService is true, time is finishTime
 
@@ -25,10 +26,13 @@ public class Request implements Comparable {
         this.s = s;
         s.employ(this, time);
 
-        BigDecimal dueDateCheck = new BigDecimal(jobSize/s.getWorkRate());
-        dueDateCheck.add(time);
-        if (!dueDateCheck.equals(dueDate)) {
+        BigDecimal dueDateCheck = dueDate;
+        dueDate = time.add(new BigDecimal(jobSize/s.getWorkRate()));
+
+        if (waitedInQueue && !dueDateCheck.equals(dueDate)) {
             System.out.println("error: failed due date check");
+            System.out.println(dueDate);
+            System.out.println(dueDateCheck);
         }
     }
 
@@ -49,7 +53,6 @@ public class Request implements Comparable {
     public void setDueDate (BigDecimal dueDate) {
         this.dueDate = dueDate;
     }
-    
 
     public boolean inService () {
         return inService;
@@ -60,6 +63,14 @@ public class Request implements Comparable {
     }
 
     public int compareTo (Object o) {
-        return ((Request) o).getDueDate().compareTo(dueDate); //CHECK!!!
+        return -((Request) o).getDueDate().compareTo(dueDate); //CHECK!!!
+    }
+
+    public String toString () {
+       return"request with:\n\tinService = " + inService + "\n\tdueDate = " + dueDate + "\n\tjob size = " + jobSize + "\n\tserver = " + s+"\n";
+    }
+
+    public void waitedInQueue () {
+        waitedInQueue = true;
     }
 }
