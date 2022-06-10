@@ -11,12 +11,15 @@ public class PoissonArrivalProcess implements ArrivalProcess {
      * https://stackoverflow.com/a/5615564
      */
 
-     // DOES NOT NECESSARILY WORK FOR LARGE AND SMALL LAMBDAS????
+     // doesn't work for small and large lambdas
     public double getInterarrivalTime() {
         return -Math.log(1.0-Math.random())/lambda; 
     }
 
-    public double getInterarrivalTimeEdgeCase () {
+    
 
+    //https://commons.apache.org/proper/commons-math/javadocs/api-3.5/org/apache/commons/math3/distribution/PoissonDistribution.html
+    public double getInterarrivalTimeFromDistribution () {
+        return 0;
     }
 }

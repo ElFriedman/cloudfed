@@ -1,11 +1,12 @@
 package edu.usc.qed.cloudfed.CloudModel;
 
 import java.util.PriorityQueue;
+import java.math.BigDecimal;
 
 public class Cloud {
     private WorkloadGenerator wGenerator;
     private PriorityQueue<Request> eventQueue;
-    private Queue<Request> serverQueue; 
+    private ServerPool serverPool;
     //currently the queue could be under capacity but the expected wait time of the newest 
     //request would be over the QoS requirement, however it would not be rejected
 
@@ -13,8 +14,10 @@ public class Cloud {
     //baked with workload generator into a cloud, allowing the federation cloud to act as a 
     //server pool with the same class structure? probably
 
+    //eventually, ServerPool should be an interface, with this constructor determining if 
+    //HomogenousServerPool or another variety is chosen
     public Cloud (double lambda, double jobSizeMin, double jobSizeMax, double QoS,
-    double servers, int arrivalProcessType, int jobGeneratorType) {
+    double workRate, int serverCount, int arrivalProcessType, int jobGeneratorType) {
         ArrivalProcess arrProcess = null;
         JobGenerator jGenerator = null;
 
@@ -26,27 +29,23 @@ public class Cloud {
         }
         wGenerator = new WorkloadGenerator(arrProcess, jGenerator);
         eventQueue = new PriorityQueue<Request>();
-        serverQueue = new Queue<Request>();
+        serverPool = new ServerPool(workRate, serverCount);
     }
 
-    public void run (double endTime) {
-        double time = 0;
-        eventQueue.add(wGenerator.generateRequest(0));
-        while (!eventQueue.isEmpty() && time < endTime) {
+    public void run (BigDecimal endTime) {
+        BigDecimal time = new BigDecimal(0);
+        eventQueue.add(wGenerator.generateRequest(time));
+        while (!eventQueue.isEmpty() && endTime.compareTo(time)>0) { // check >/<
             Request r = eventQueue.remove();
             if (r.inService()) {
                 
             } else {
-                if (getCapacity()) {
-
-                }
+                
             }
         }
     }
 
-    public double getCapacity () {
-        return 0;
-    }
+    
 
 
 
