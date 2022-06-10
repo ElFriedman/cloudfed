@@ -1,5 +1,6 @@
 package edu.usc.qed.cloudfed.CloudModel;
 
+//USE POISSON DISTRIBUTION LIBRARY
 public class PoissonArrivalProcess implements ArrivalProcess {
     private double lambda;
     public PoissonArrivalProcess (double lambda) {

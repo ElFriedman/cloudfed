@@ -62,5 +62,4 @@ public class Request implements Comparable {
     public int compareTo (Object o) {
         return ((Request) o).getDueDate().compareTo(dueDate); //CHECK!!!
     }
-
 }
