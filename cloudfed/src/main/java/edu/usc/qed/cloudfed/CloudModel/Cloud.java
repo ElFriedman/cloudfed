@@ -7,6 +7,12 @@ public class Cloud {
     private WorkloadGenerator wGenerator;
     private PriorityQueue<Request> eventQueue;
     private ServerPool serverPool;
+    private double QoS;
+
+    private int requestsServiced;
+    private int requestsRejected;
+    private int totalRequests;
+
     //currently the queue could be under capacity but the expected wait time of the newest 
     //request would be over the QoS requirement, however it would not be rejected
 
@@ -20,7 +26,6 @@ public class Cloud {
     double workRate, int serverCount, int arrivalProcessType, int jobGeneratorType) {
         ArrivalProcess arrProcess = null;
         JobGenerator jGenerator = null;
-
         if (arrivalProcessType == 0) {
             arrProcess = new PoissonArrivalProcess(lambda);
         }
@@ -30,23 +35,67 @@ public class Cloud {
         wGenerator = new WorkloadGenerator(arrProcess, jGenerator);
         eventQueue = new PriorityQueue<Request>();
         serverPool = new ServerPool(workRate, serverCount);
+        this.QoS = QoS;
+        requestsServiced = 0;
+        requestsRejected = 0;
+        totalRequests = 0;
     }
 
     public void run (BigDecimal endTime) {
         BigDecimal time = new BigDecimal(0);
         eventQueue.add(wGenerator.generateRequest(time));
-        while (!eventQueue.isEmpty() && endTime.compareTo(time)>0) { // check >/<
+        while (endTime.compareTo(time)>0) { // check >/<
             Request r = eventQueue.remove();
-            if (r.inService()) {
-                
-            } else {
-                
+            if (r.inService()) { //if service of this request just finished
+                Request req = serverPool.finishRequest(r, time);
+                if (req != null) {
+                    eventQueue.add(req);
+                }
+                requestsServiced += 1;
+            } else { //if this request just arrived
+                totalRequests += 1;
+                if (serverPool.underCapacity(QoS, time)) {
+                    Request req = serverPool.putRequest(r, time);
+                    if (req != null) {
+                        eventQueue.add(req);
+                    }
+                } else {
+                    rejectRequest(r);
+                }
             }
         }
+        System.out.println("After time " + time);
+        System.out.println(requestsRejected + " rejected requests");
+        System.out.println(requestsServiced + " serviced requests");
+        System.out.println((requestsRejected + requestsServiced) + " combined requests");
+        System.out.println(totalRequests + " total requests (should be same as ^)");
+        System.out.println("rejection rate: " + (double)requestsRejected/(double)totalRequests);
+    
+        displayUptimes(time);
     }
 
+    public void rejectRequest(Request r) {
+        requestsRejected += 1;
+    }
+
+    public boolean crosscheckUptimes(BigDecimal time) {
+        for (Server s : serverPool.getServers()) {
+            BigDecimal t1 = s.uptime1();
+            if(!t1.equals(s.uptime2(time))) {
+                return false;
+            }
+        }
+        return true;
+    }
     
-
-
+    public void displayUptimes (BigDecimal time) { 
+        if (crosscheckUptimes(time)) {
+            for (Server s : serverPool.getServers()) {
+                System.out.println(s.uptime1());
+            }
+        } else {
+            System.out.println ("Uptimes failed crosscheck test");
+        }
+    }
 
 }
