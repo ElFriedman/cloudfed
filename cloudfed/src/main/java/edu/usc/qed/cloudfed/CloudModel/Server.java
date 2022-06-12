@@ -2,6 +2,8 @@ package edu.usc.qed.cloudfed.CloudModel;
 
 import java.math.BigDecimal;
 
+//UPTIME CHECKS IMPRECISE, USE DOUBLES AND ROUDNING
+
 public class Server {
     private double workRate;
     private boolean inUse;
@@ -50,12 +52,34 @@ public class Server {
         lastTime = time;
     }
 
+   /*
     public BigDecimal uptime1 () {
         return uptime.divide(uptime.add(downtime));
     }
-
+    
     public BigDecimal uptime2 (BigDecimal time) {
         return uptime.divide(time);
+    }*/
+
+    public double uptime1 () {
+        double u = uptime.doubleValue();
+        double d = downtime.doubleValue();
+        return u/(u + d);
+    }
+
+    public double uptime2 (BigDecimal time) { 
+        double u = uptime.doubleValue();
+        double t = time.doubleValue();
+        return u/t;
+    }
+
+    public boolean crosscheckUptimes (BigDecimal time) {
+        if (inUse) {
+            uptime = uptime.add(time).subtract(lastTime);
+        } else {
+            downtime = downtime.add(time).subtract(lastTime);
+        }
+        return uptime1()-uptime2(time) < 0.0000001; //IMPRECISE!!
     }
 }
 

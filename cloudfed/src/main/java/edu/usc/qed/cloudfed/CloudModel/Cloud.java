@@ -45,11 +45,6 @@ public class Cloud {
     public void run (BigDecimal endTime) {
         BigDecimal time = new BigDecimal(0);
         eventQueue.add(wGenerator.generateRequest(time));
-
-        System.out.println("time = " + time);
-        System.out.println(eventQueue);
-        System.out.println();
-
         while (endTime.compareTo(time) > 0 ) {
             Request r = eventQueue.remove();            
             time = new BigDecimal(r.getDueDate().toString());
@@ -71,10 +66,11 @@ public class Cloud {
                 }
                 eventQueue.add(wGenerator.generateRequest(time));
             }
-
+            /* 
             System.out.println("time = " + time);
             System.out.println(eventQueue);
             System.out.println();
+            */
         }
         System.out.println("After time " + time);
         System.out.println(requestsRejected + " rejected requests");
@@ -91,27 +87,38 @@ public class Cloud {
         requestsRejected += 1;
     }
 
+    //note uptimes are being converted to doubles. probably ok but double check
     public boolean crosscheckUptimes(BigDecimal time) {
         for (Server s : serverPool.getServers()) {
-            if(!s.uptime1().equals(s.uptime2(time))) {
+            if(!s.crosscheckUptimes(time)) {
+                System.out.println("up/up+down: " + s.uptime1());
+                System.out.println("up/time: " + s.uptime2(time));
                 return false;
             }
         }
         return true;
     }
     
+    //note uptimes are being converted to doubles. probably ok but double check
     public void displayUptimes (BigDecimal time) { 
-        if (crosscheckUptimes(time)) {
-            for (Server s : serverPool.getServers()) {
-                System.out.println(s.uptime1());
-            }
+        if (!crosscheckUptimes(time)) {
+            System.out.println("***Uptimes failed crosscheck test***");
         } else {
-            System.out.println ("Uptimes failed crosscheck test");
+            System.out.println("Uptimes passed crosscheck test");
         }
+        double totalUptime = 0;
+        int n = 0;
+        System.out.println("Server Uptimes");
+        for (Server s : serverPool.getServers()) {
+            System.out.println("\t"+n+": "+s.uptime1());
+            totalUptime += s.uptime1();
+            n += 1;
+        }
+        System.out.println("Mean uptime: " + totalUptime/n);
     }
 
     public static void main (String [] args ) {
         Cloud cloud9 = new Cloud(2, 3, 4, 8, 1, 7, 0, 0);
-        cloud9.run(new BigDecimal(1000));
+        cloud9.run(new BigDecimal(100000));
     }
 }
