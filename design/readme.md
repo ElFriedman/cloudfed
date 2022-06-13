@@ -117,6 +117,36 @@ We are also interested in
 
 For each request, we need to label the workload stream origin, so that we can get those metrics for each arrival streams. 
 
+### Queueing
+
+When admitting a request, in theory, we use the average service time to calculate the maximum queueing capacity in terms of the number of requests in a queue. In a simulation, we are given the service time of a request, and we can use it to predict the exact queueing capacity. However, this can deviate from the theory.
+
+<details>
+  <summary>Reasons for using exact time or mean service time:</summary>
+Using exact time for admitting a request:
+Pros:
+    - The queueing capacity is accurate (In exactly the specified amount of time, the request can start service.)
+    - We can use this actual queueing capacity to see if the rejection rate is what we expected.
+Cons:
+    - In reality, requests do not normally come with expected service time or even exact service time.
+    - It might be different from the expected queueing capacity and deviate from our model. (not sure if it is a good thing)
+    - It can get very complicated when servers have different service rates. 
+
+Using mean service time to calculate the queueing capacity:
+Pros:
+    - It follows the assumption of the theory.
+    - It becomes more realistic since we will at most be given an expected service time than the exact one.
+    - It is easier to implement.
+    - We can even check how many requests are not getting served in time.
+Cons:
+    - The queueing time is not accurate. (requests may be served later than expected waiting time)
+    - Unless using other methods in calculating the capacity, requests with service times following a heavy tail distribution will have more requests not following the expected waiting time.
+</details>
+
+We consider the following methods to calculate the queueing capacity:
+- Keep track of the origin of all requests (which stream of arrival it came from) admitted to the system (both in sevrice and in queue).
+- Given that we know the mean and variance of the service time for an arrival stream, we can use this to calculate the queueing capacity based on a weighted average for all the requests in the system.
+
 
 ## Project Partition
 
