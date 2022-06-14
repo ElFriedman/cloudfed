@@ -123,24 +123,29 @@ When admitting a request, in theory, we use the average service time to calculat
 
 <details>
   <summary>Reasons for using exact time or mean service time:</summary>
+
 Using exact time for admitting a request:
+
 Pros:
-    - The queueing capacity is accurate (In exactly the specified amount of time, the request can start service.)
-    - We can use this actual queueing capacity to see if the rejection rate is what we expected.
+- The queueing capacity is accurate (In exactly the specified amount of time, the request can start service.)
+- We can use this actual queueing capacity to see if the rejection rate is what we expected.
+
 Cons:
-    - In reality, requests do not normally come with expected service time or even exact service time.
-    - It might be different from the expected queueing capacity and deviate from our model. (not sure if it is a good thing)
-    - It can get very complicated when servers have different service rates. 
+- In reality, requests do not normally come with expected service time or even exact service time.
+- It might be different from the expected queueing capacity and deviate from our model. (not sure if it is a good thing)
+- It can get very complicated when servers have different service rates. 
 
 Using mean service time to calculate the queueing capacity:
+
 Pros:
-    - It follows the assumption of the theory.
-    - It becomes more realistic since we will at most be given an expected service time than the exact one.
-    - It is easier to implement.
-    - We can even check how many requests are not getting served in time.
+- It follows the assumption of the theory.
+- It becomes more realistic since we will at most be given an expected service time than the exact one.
+- It is easier to implement.
+- We can even check how many requests are not getting served in time.
+
 Cons:
-    - The queueing time is not accurate. (requests may be served later than expected waiting time)
-    - Unless using other methods in calculating the capacity, requests with service times following a heavy tail distribution will have more requests not following the expected waiting time.
+- The queueing time is not accurate. (requests may be served later than expected waiting time)
+- Unless using other methods in calculating the capacity, requests with service times following a heavy tail distribution will have more requests not following the expected waiting time.
 </details>
 
 We consider the following methods to calculate the queueing capacity:
