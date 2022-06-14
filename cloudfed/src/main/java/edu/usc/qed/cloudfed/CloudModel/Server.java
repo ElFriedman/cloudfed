@@ -1,85 +1,85 @@
-package edu.usc.qed.cloudfed.CloudModel;
+// package edu.usc.qed.cloudfed.CloudModel;
 
-import java.math.BigDecimal;
+// import java.math.BigDecimal;
 
-//UPTIME CHECKS IMPRECISE, USE DOUBLES AND ROUDNING
+// //UPTIME CHECKS IMPRECISE, USE DOUBLES AND ROUDNING
 
-public class Server {
-    private double workRate;
-    private boolean inUse;
+// public class Server {
+//     private double workRate;
+//     private boolean inUse;
 
-    private Request r;
+//     private Request r;
 
-    private BigDecimal uptime;
-    private BigDecimal downtime;
-    private BigDecimal lastTime;
+//     private BigDecimal uptime;
+//     private BigDecimal downtime;
+//     private BigDecimal lastTime;
 
-    public Server (double workRate) {
-        this.workRate = workRate;
-        inUse = false;
-        uptime = new BigDecimal (0);
-        downtime = new BigDecimal (0);
-        lastTime = new BigDecimal (0);
-    }
+//     public Server (double workRate) {
+//         this.workRate = workRate;
+//         inUse = false;
+//         uptime = new BigDecimal (0);
+//         downtime = new BigDecimal (0);
+//         lastTime = new BigDecimal (0);
+//     }
 
-    public boolean inUse() {
-        return inUse;
-    }
+//     public boolean inUse() {
+//         return inUse;
+//     }
 
-    public double getWorkRate () {
-        return workRate;
-    }
+//     public double getWorkRate () {
+//         return workRate;
+//     }
 
-    public void employ (Request r, BigDecimal time) {
-        if (inUse) {
-            System.out.println("error: should not get here, server was already in use and got employed");
-        } 
-        inUse = true;
-        this.r = r;
+//     public void employ (Request r, BigDecimal time) {
+//         if (inUse) {
+//             System.out.println("error: should not get here, server was already in use and got employed");
+//         } 
+//         inUse = true;
+//         this.r = r;
 
-        downtime = downtime.add(time).subtract(lastTime);
-        lastTime = time;
-    }
+//         downtime = downtime.add(time).subtract(lastTime);
+//         lastTime = time;
+//     }
 
-    public void fire (BigDecimal time) {
-        if (!inUse) {
-            System.out.println("error: should not get here, server was not in use and got fired");
-        }
-        inUse = false;
-        r = null;
+//     public void fire (BigDecimal time) {
+//         if (!inUse) {
+//             System.out.println("error: should not get here, server was not in use and got fired");
+//         }
+//         inUse = false;
+//         r = null;
 
-        uptime = uptime.add(time).subtract(lastTime);
-        lastTime = time;
-    }
+//         uptime = uptime.add(time).subtract(lastTime);
+//         lastTime = time;
+//     }
 
-   /*
-    public BigDecimal uptime1 () {
-        return uptime.divide(uptime.add(downtime));
-    }
+//    /*
+//     public BigDecimal uptime1 () {
+//         return uptime.divide(uptime.add(downtime));
+//     }
     
-    public BigDecimal uptime2 (BigDecimal time) {
-        return uptime.divide(time);
-    }*/
+//     public BigDecimal uptime2 (BigDecimal time) {
+//         return uptime.divide(time);
+//     }*/
 
-    public double uptime1 () {
-        double u = uptime.doubleValue();
-        double d = downtime.doubleValue();
-        return u/(u + d);
-    }
+//     public double uptime1 () {
+//         double u = uptime.doubleValue();
+//         double d = downtime.doubleValue();
+//         return u/(u + d);
+//     }
 
-    public double uptime2 (BigDecimal time) { 
-        double u = uptime.doubleValue();
-        double t = time.doubleValue();
-        return u/t;
-    }
+//     public double uptime2 (BigDecimal time) { 
+//         double u = uptime.doubleValue();
+//         double t = time.doubleValue();
+//         return u/t;
+//     }
 
-    public boolean crosscheckUptimes (BigDecimal time) {
-        if (inUse) {
-            uptime = uptime.add(time).subtract(lastTime);
-        } else {
-            downtime = downtime.add(time).subtract(lastTime);
-        }
-        return uptime1()-uptime2(time) < 0.0000001; //IMPRECISE!!
-    }
-}
+//     public boolean crosscheckUptimes (BigDecimal time) {
+//         if (inUse) {
+//             uptime = uptime.add(time).subtract(lastTime);
+//         } else {
+//             downtime = downtime.add(time).subtract(lastTime);
+//         }
+//         return uptime1()-uptime2(time) < 0.0000001; //IMPRECISE!!
+//     }
+// }
 

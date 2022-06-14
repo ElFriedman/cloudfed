@@ -1,13 +1,20 @@
 package edu.usc.qed.cloudfed;
 
 import java.util.concurrent.Callable;
+import java.util.random.RandomGenerator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import edu.usc.qed.cloudfed.Workload.*;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.regex.Pattern;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.ScopeType;
 
@@ -22,12 +29,117 @@ public class Main {
             description = "Log additional debugging information (default: ${DEFAULT-VALUE})")
     private boolean verbose;
 
-    @Command(name = "workload", description = "Generate a workload.")
+    @Command(name = "workload", description = "Generate, analyze, or merge workloads.", subcommands = {Generate.class, Info.class, Merge.class})
     static class Workload implements Callable<Integer> {
         @ParentCommand private Main parent;
 
         @Override public Integer call() throws Exception {
+            System.out.println("Thinking about a workload");
+
+            //should provide info on what subcommands to enter
+            //maybe smth like workload help
+
+            return 0;
+        }
+    }
+
+    @Command(name = "generate", description = "Generate a workload.")
+    static class Generate implements Callable<Integer> {
+        @ParentCommand private Workload parentWorkload;
+
+        @Parameters(index = "0") private String fileName;
+        @Parameters(index = "1") private String stopCritString;
+        @Parameters(index = "2..*") private ArrayList<String> streamStrings;
+        
+        @Override public Integer call() throws Exception {
             System.out.println("Genenerating a workload");
+            
+            RandomGenerator rng = RandomGenerator.getDefault();
+
+            //stopping criteria
+            StoppingCriterion stoppingCriterion = null;
+            if (Pattern.matches("Job\\[\\d+\\]", stopCritString)) { //job criterion
+                stoppingCriterion = new JobStoppingCriterion(Integer.parseInt(stopCritString.substring(4, stopCritString.length()-1)));
+            } else if (Pattern.matches("Time\\[\\d+(\\.\\d+)?\\]", stopCritString)) { //time criterion
+                stoppingCriterion = new TimeStoppingCriterion(new BigDecimal(stopCritString.substring(5, stopCritString.length()-1)));
+            } else {
+                System.out.println("Invalid stopping criterion");
+            }
+
+            ArrayList<WorkloadStream> streams = new ArrayList<WorkloadStream>();
+            for (String s : streamStrings) {
+                //ArrivalProcess
+                ArrivalProcess arrivalProcess = null;
+                int colon1 = s.indexOf("]") + 1;
+                String APString = s.substring(0, colon1);
+                if(Pattern.matches("Exp\\[\\d+(\\.\\d+)?\\]", APString)) { //Poisson
+                    arrivalProcess = new PoissonArrivalProcess(rng, Double.parseDouble(APString.substring(4, colon1 - 1)));
+                } else {
+                    System.out.println("Invalid arrival process distribution");
+                }
+                
+                //BatchSizer
+                BatchSizer batchSizer = null;
+                String s2 = s.substring(colon1 + 1);
+                int colon2 = s2.indexOf("]") + 1;
+                String BSString = s2.substring(0, colon2);
+                if (Pattern.matches("Det\\[\\d+\\]", BSString)) { //Determined
+                    batchSizer = new DetBatchSizer(Integer.parseInt(BSString.substring(4, colon2 - 1)));
+                } else if (Pattern.matches("Dist\\[0\\.\\d+:\\d+(\\.\\d+)?(,0\\.\\d+:\\d+(\\.\\d+)?)*\\]", BSString)) { //Distributed
+                    int entries = 1 + (int) (BSString.chars().filter(ch -> ch == ',').count());
+                    double[] probabilities = new double[entries];
+                    int[] batchSizes = new int[entries];
+                    BSString = BSString.substring(5);
+                    int stop = 0;
+                    for (int i = 0; i < entries; i++) {
+                        stop = BSString.indexOf(":");
+                        probabilities[i] = Double.parseDouble(BSString.substring(0, stop));
+                        BSString = BSString.substring(stop + 1);
+                        stop = BSString.indexOf(",") < 0 ? BSString.indexOf("]") : BSString.indexOf(",");
+                        batchSizes[i] = Integer.parseInt(BSString.substring(0, stop));
+                        BSString = BSString.substring(stop + 1);
+                    }
+                    batchSizer = new DistBatchSizer(rng, probabilities, batchSizes);
+                } else {
+                    System.out.println("Invalid batch sizer distribution");
+                }
+
+                //JobGenerator
+                JobGenerator jobGenerator = null;
+                String s3 = s2.substring(colon2 + 1);
+                if (Pattern.matches("Unif\\[\\d+,\\d+\\]", s3)) { //Uniform
+                    jobGenerator = new UniformJobGenerator(rng, Double.parseDouble(s3.substring(5, s3.indexOf(","))), 
+                    Double.parseDouble(s3.substring(s3.indexOf(",") + 1, s3.length() - 1)));
+                } else {
+                    System.out.println("Invalid job generator distribution");
+                }
+
+                streams.add(new WorkloadStream(arrivalProcess, batchSizer, jobGenerator));
+            }
+            WorkloadGenerator generator = new WorkloadGenerator(streams);
+            generator.generateWorkload(fileName, stoppingCriterion);
+            System.out.println("Workload generated");
+            return 0; //should i use this return for anything
+            //have to figure out messagepackexample .msgpack
+        }
+    }
+    @Command(name = "info", description = "Analyze a workload.")
+    static class Info implements Callable<Integer> {
+        @ParentCommand private Workload parentWorkload;
+        
+        @Override public Integer call() throws Exception {
+            System.out.println("Analyzing a workload");
+            // https://github.com/msgpack/msgpack-java/blob/develop/msgpack-core/src/test/java/org/msgpack/core/example/MessagePackExample.java
+            return 0;
+        }
+    }
+
+    @Command(name = "merge", description = "Merge multiple workloads.")
+    static class Merge implements Callable<Integer> {
+        @ParentCommand private Workload parentWorkload;
+        
+        @Override public Integer call() throws Exception {
+            System.out.println("Merging multiple workloads");
             // https://github.com/msgpack/msgpack-java/blob/develop/msgpack-core/src/test/java/org/msgpack/core/example/MessagePackExample.java
             return 0;
         }

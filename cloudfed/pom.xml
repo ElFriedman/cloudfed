@@ -34,6 +34,11 @@
       <name>Bowen Song</name>
       <email>bowenson@usc.edu</email>
     </developer>
+    <developer>
+      <id>elifriedman</id>
+      <name>Eli Friedman</name>
+      <email>elifriedman317@gmail.com</email>
+    </developer>
   </developers>
 
   <licenses>

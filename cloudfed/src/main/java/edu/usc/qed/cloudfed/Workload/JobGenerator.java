@@ -1,4 +1,4 @@
-package edu.usc.qed.cloudfed.CloudModel;
+package edu.usc.qed.cloudfed.Workload;
 
 public interface JobGenerator {
     public double getJobSize();
