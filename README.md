@@ -5,15 +5,19 @@
 ### Workload Generation
 
 ```
-java -jar cloudfed.jar workload generate type1:Exp[1.5]:Dist[0.7:1,0.3:2]:Unif[1,2] type1:Exp[2]:Det[1]:Unif[3,4] workload.msgpack
+java -jar cloudfed.jar workload generate workload.msgpack "Job[1000]" "Exp[1.5]:Dist[0.7:1,0.3:2]:Unif[1,2]" "Exp[2]:Det[1]:Unif[3,4]" 
 ```
 
-Generate a workload file `workload.msgpack` with two streams of jobs:
-- `type1` (exponential interarrival time with rate `1.5`, batch size of `1` with
+Generate a workload file `workload.msgpack` with a stopping criterion and two streams of jobs:
+- Stream 1: exponential interarrival time with rate `1.5`, batch size of `1` with
   probability `0.7` or `2` with probability `0.3`, job size uniformly
-  distributed in `[1,2]`)
-- `type2` (exponential interarrival time with rate `2`, batch size of `1`, job
-  size uniformly distributed in `[3,4]`)
+  distributed in `[1,2]`
+- Stream 2: exponential interarrival time with rate `2`, batch size of `1`, job
+  size uniformly distributed in `[3,4]`
+  
+Stopping criteria:
+- "Job\[1000]" generates 1000 jobs
+- "Time\[20.5]" generates jobs until t = 20.5
 
 ```
 java -jar cloudfed.jar workload info workload.msgpack
