@@ -23,14 +23,14 @@ Stopping criteria:
 java -jar cloudfed.jar workload info workload.msgpack
 ```
 
-Show workload information (start/end time, number of jobs, mean interarrival time,
+Show workload information (end time, number of jobs, mean interarrival time,
 mean batch size, mean job size).
 
 ```
-java -jar cloudfed.jar workload merge workload1.msgpack workload2.msgpack
+java -jar cloudfed.jar workload merge new-workload.msgpack workload1.msgpack workload2.msgpack
 ```
 
-Merge two workloads.
+Merge multiple workloads.
 
 ### Simulation
 
