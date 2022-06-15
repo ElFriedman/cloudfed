@@ -9,7 +9,9 @@ import org.slf4j.LoggerFactory;
 import edu.usc.qed.cloudfed.Workload.*;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.ArrayList;
+import java.util.PriorityQueue;
 import java.util.regex.Pattern;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -17,6 +19,15 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.ScopeType;
+
+import org.msgpack.core.MessagePack;
+import org.msgpack.core.MessagePacker;
+import org.msgpack.core.MessageUnpacker;
+
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
 
 @Command(name = "cloudfed", mixinStandardHelpOptions = true, version = "cloudfed 1.0",
          description = "Cloud Federation Simulator",
@@ -117,19 +128,45 @@ public class Main {
                 streams.add(new WorkloadStream(arrivalProcess, batchSizer, jobGenerator));
             }
             WorkloadGenerator generator = new WorkloadGenerator(streams);
-            generator.generateWorkload(fileName, stoppingCriterion);
+
+            MessagePacker packer = MessagePack.newDefaultPacker(new FileOutputStream(fileName));
+            generator.generateWorkload(packer, stoppingCriterion);
+            packer.close();
             System.out.println("Workload generated");
             return 0; //should i use this return for anything
-            //have to figure out messagepackexample .msgpack
         }
     }
     @Command(name = "info", description = "Analyze a workload.")
     static class Info implements Callable<Integer> {
         @ParentCommand private Workload parentWorkload;
         
+        @Parameters(index = "0") private String fileName;
+
         @Override public Integer call() throws Exception {
             System.out.println("Analyzing a workload");
-            // https://github.com/msgpack/msgpack-java/blob/develop/msgpack-core/src/test/java/org/msgpack/core/example/MessagePackExample.java
+            MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(new FileInputStream(fileName));
+            int jobCount = 0;
+            int batchCount = 0;
+            BigDecimal oldT = new BigDecimal(-1);
+            BigDecimal newT = new BigDecimal(-1);
+            double netJobSize = 0;
+            while(unpacker.hasNext()) {
+                oldT = newT;
+                newT = new BigDecimal(unpacker.unpackString());
+                if (!newT.equals(oldT)) {
+                    batchCount++;
+                }
+                double jobSize = unpacker.unpackDouble();
+                netJobSize += jobSize;
+                jobCount++;
+            }
+            unpacker.close();
+
+            System.out.println("Final time: " + newT);
+            System.out.println("Number of jobs: " + jobCount);
+            System.out.println("Mean interarrival time: " + newT.divide(new BigDecimal(batchCount), MathContext.DECIMAL64)); //can choose precision
+            System.out.println("Mean batch size: " + jobCount/(double)batchCount);
+            System.out.println("Mean job size " + netJobSize/jobCount);
             return 0;
         }
     }
@@ -137,10 +174,57 @@ public class Main {
     @Command(name = "merge", description = "Merge multiple workloads.")
     static class Merge implements Callable<Integer> {
         @ParentCommand private Workload parentWorkload;
+
+        @Parameters(index = "0") private String newFileName;
+        @Parameters(index = "1..*") private ArrayList<String> fileNames;
         
         @Override public Integer call() throws Exception {
             System.out.println("Merging multiple workloads");
-            // https://github.com/msgpack/msgpack-java/blob/develop/msgpack-core/src/test/java/org/msgpack/core/example/MessagePackExample.java
+
+            class Unpacker implements Comparable {
+                private MessageUnpacker unpacker;
+                private BigDecimal time;
+                private double jobSize;
+
+                public Unpacker (MessageUnpacker unpacker) throws IOException {
+                    this.unpacker = unpacker;
+                    time = new BigDecimal(unpacker.unpackString());
+                    jobSize = unpacker.unpackDouble();
+                }
+
+                public int compareTo(Object o) {
+                    return time.compareTo(((Unpacker)o).time);
+                }
+
+                public boolean hasNext() throws IOException {
+                    time = new BigDecimal(unpacker.unpackString());
+                    jobSize = unpacker.unpackDouble();
+                    return unpacker.hasNext();
+                }
+
+                public void close () throws IOException {
+                    unpacker.close();
+                }
+            }
+            MessagePacker packer = MessagePack.newDefaultPacker(new FileOutputStream(newFileName));
+            PriorityQueue<Unpacker> unpackerPQ = new PriorityQueue<Unpacker>();
+            for (String fileName : fileNames) {
+                unpackerPQ.add(new Unpacker(MessagePack.newDefaultUnpacker(new FileInputStream(fileName))));
+            }
+            while(!unpackerPQ.isEmpty()) {
+                Unpacker unp = unpackerPQ.poll();
+                packer.packString(unp.time.toString());
+                packer.packDouble(unp.jobSize);
+                if(unp.hasNext()) {
+                    unpackerPQ.add(unp);
+                } else {
+                    packer.packString(unp.time.toString());
+                    packer.packDouble(unp.jobSize);
+                    unp.close();
+                }
+            }
+            packer.close();
+            System.out.println("Merged workload generated");
             return 0;
         }
     }

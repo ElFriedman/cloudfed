@@ -1,8 +1,9 @@
 package edu.usc.qed.cloudfed.Workload;
 
 import java.math.BigDecimal;
-import java.io.BufferedWriter;
 import java.io.IOException;
+
+import org.msgpack.core.MessagePacker;
 
 public class WorkloadStream implements Comparable {
     private BigDecimal arrivalTime;
@@ -21,11 +22,11 @@ public class WorkloadStream implements Comparable {
         return arrivalTime.compareTo(((WorkloadStream)o).arrivalTime);
     }
 
-    public int writeBatch (BufferedWriter out) throws IOException {
+    public int writeBatch (MessagePacker packer) throws IOException {
         int n = batchSizer.getBatchSize();
         for (int i = 0; i < n; i++) {
-            out.write(arrivalTime.toString() + " " + jobGenerator.getJobSize());
-            out.newLine();
+            packer.packString(arrivalTime.toString());
+            packer.packDouble(jobGenerator.getJobSize());
         }
         return n;
     }
