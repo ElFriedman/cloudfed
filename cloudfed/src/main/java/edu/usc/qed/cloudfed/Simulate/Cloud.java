@@ -1,19 +1,19 @@
-// package edu.usc.qed.cloudfed.CloudModel;
+package edu.usc.qed.cloudfed.Simulate;
 
-// import java.util.PriorityQueue;
+import java.util.ArrayList;
 
-// import edu.usc.qed.cloudfed.Workload.ArrivalProcess;
-// import edu.usc.qed.cloudfed.Workload.JobGenerator;
-// import edu.usc.qed.cloudfed.Workload.PoissonArrivalProcess;
-// import edu.usc.qed.cloudfed.Workload.UniformJobGenerator;
-// import edu.usc.qed.cloudfed.Workload.WorkloadGenerator;
+public class Cloud extends ServerPool {
+    public Cloud (ArrayList<Server> servers) {
+        super(servers);
+    }
 
-// import java.math.BigDecimal;
-
-// public class Cloud {
+    @Override
+    public void reject (AbstractSimulator simulator, Request r) {
+        ((CloudSimulator)simulator).federation.insert(simulator, r);
+    }
+}
 //     private WorkloadGenerator wGenerator;
 //     private PriorityQueue<Request> eventQueue;
-//     private ServerPool serverPool;
 //     private double QoS;
 
 //     private int requestsServiced;

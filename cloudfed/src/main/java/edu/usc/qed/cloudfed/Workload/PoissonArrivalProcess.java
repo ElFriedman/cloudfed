@@ -15,7 +15,4 @@ public class PoissonArrivalProcess implements ArrivalProcess {
     public BigDecimal getInterarrivalTime() {
         return new BigDecimal(generator.nextExponential()/lambda);
     }
-
-    
-
 }

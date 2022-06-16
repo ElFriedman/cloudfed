@@ -10,12 +10,14 @@ public class WorkloadStream implements Comparable {
     private ArrivalProcess arrivalProcess;
     private BatchSizer batchSizer;
     private JobGenerator jobGenerator;
+    private String streamLabel;
 
-    public WorkloadStream (ArrivalProcess arrivalProcess, BatchSizer batchSizer, JobGenerator jobGenerator) {
+    public WorkloadStream (ArrivalProcess arrivalProcess, BatchSizer batchSizer, JobGenerator jobGenerator, String streamLabel) {
         this.arrivalProcess = arrivalProcess;
         this.batchSizer = batchSizer;
         this.jobGenerator = jobGenerator;
         arrivalTime = arrivalProcess.getInterarrivalTime();
+        this.streamLabel = streamLabel;
     }
     
     public int compareTo(Object o) {
@@ -25,6 +27,7 @@ public class WorkloadStream implements Comparable {
     public int writeBatch (MessagePacker packer) throws IOException {
         int n = batchSizer.getBatchSize();
         for (int i = 0; i < n; i++) {
+            packer.packString(streamLabel);
             packer.packString(arrivalTime.toString());
             packer.packDouble(jobGenerator.getJobSize());
         }

@@ -16,4 +16,7 @@ public class UniformJobGenerator implements JobGenerator {
         return generator.nextDouble() * (max - min) + min;
     }
 
+    public double meanJobSize () {
+        return (max + min)/2;
+    }
 }
