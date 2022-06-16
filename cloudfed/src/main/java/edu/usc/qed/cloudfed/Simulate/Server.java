@@ -10,16 +10,16 @@ public class Server extends Event {
 
     public Server (double workRate) {
         this.workRate = workRate;
+        r = null;
     }
 
-    //can delete this?
-    public boolean isAvailable() {
-        return r == null;
-    }
-
+    //finish task
     public void execute (AbstractSimulator simulator) {
         //notify listeners with time and request?
         r = null;
+        
+        pool.completed++;
+
         if (!pool.queue.isEmpty()) {
             r = pool.queue.poll();
             insert(simulator, r);
@@ -29,7 +29,7 @@ public class Server extends Event {
     }
 
     public void insert (AbstractSimulator simulator, Request r) {
-        if (r != null) {
+        if (this.r != null) {
             System.out.println("Error: server is busy with another request");
         }
         this.r = r;

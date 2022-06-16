@@ -15,8 +15,8 @@ public class CloudSimulator extends Simulator {
     public HashMap<String, Double> streamToQoS;
     public HashMap<String, Double> streamToMJS;
     
-    public CloudSimulator (MessageUnpacker unpacker, HashMap<String, Cloud> streamToCloud, Federation federation, 
-    ArrayList<Cloud> clouds, HashMap<String, Double> streamToQoS, HashMap<String, Double> streamToMJS) throws IOException {
+    public CloudSimulator (MessageUnpacker unpacker, Federation federation, 
+    ArrayList<Cloud> clouds, HashMap<String, Cloud> streamToCloud, HashMap<String, Double> streamToQoS, HashMap<String, Double> streamToMJS) throws IOException {
         events = new PriorityQueue<>();
         this.unpacker = unpacker;
         this.streamToCloud = streamToCloud;

@@ -18,7 +18,7 @@ public class Generator extends Event {
     }
 
     public void execute (AbstractSimulator simulator) {
-        nextRequest.serverPool.insert(simulator, nextRequest);
+        nextRequest.getCloud(simulator).insert(simulator, nextRequest);
         try {
             if (unpacker.hasNext()) {
                 nextRequest = getRequest();
@@ -34,8 +34,7 @@ public class Generator extends Event {
         String streamLabel = unpacker.unpackString();
         BigDecimal time = new BigDecimal(unpacker.unpackString());
         double jobSize = unpacker.unpackDouble();
-        Cloud cloud = streamToCloud.get(streamLabel);
         this.time = time;
-        return new Request (streamLabel, time, jobSize, cloud);
+        return new Request (streamLabel, time, jobSize);
     }
 }

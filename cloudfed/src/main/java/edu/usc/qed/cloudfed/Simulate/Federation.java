@@ -7,7 +7,10 @@ public class Federation extends ServerPool {
         super(servers);
     }
 
+    @Override
     public void reject (AbstractSimulator simulator, Request r) {
         //do smth. notify da peeps
+        rejected++;
+        r.getCloud(simulator).rejectedOutright++;
     }
 }

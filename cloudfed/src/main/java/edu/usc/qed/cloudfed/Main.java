@@ -42,7 +42,7 @@ import com.esotericsoftware.yamlbeans.YamlReader;
          scope = ScopeType.INHERIT,
          subcommands = { Main.Workload.class, Main.Simulate.class, Main.Metrics.class })
 public class Main {
-    private final static Logger logger =  LoggerFactory.getLogger(Main.class);
+    private final static Logger logger =  LoggerFactory.getLogger(Main.class); //what is this for
 
     @Option(names = "--verbose", defaultValue = "false", scope = ScopeType.INHERIT,
             description = "Log additional debugging information (default: ${DEFAULT-VALUE})")
@@ -87,11 +87,19 @@ public class Main {
 
             ArrayList<WorkloadStream> streams = new ArrayList<WorkloadStream>();
             HashMap<String, Double> streamToMJS = new HashMap<String, Double>();
+            HashMap<String, Double> streamToQoS = new HashMap<String, Double>();
 
             for (String s : streamStrings) {
+                //streamLabel
                 int colon0 = s.indexOf(":");
                 String streamLabel = s.substring(0, colon0);
                 s = s.substring(colon0 + 1);
+
+                //QoS
+                int colon00 = s.indexOf(":");
+                double QoS = Double.parseDouble(s.substring(0, colon00));
+                s = s.substring(colon00 + 1);
+
 
                 //ArrivalProcess
                 ArrivalProcess arrivalProcess = null;
@@ -138,16 +146,23 @@ public class Main {
                 } else {
                     System.out.println("Invalid job generator distribution");
                 }
+
                 streamToMJS.put(streamLabel, jobGenerator.meanJobSize());
+                streamToQoS.put(streamLabel, QoS);
+
                 streams.add(new WorkloadStream(arrivalProcess, batchSizer, jobGenerator, streamLabel));
             }
             WorkloadGenerator generator = new WorkloadGenerator(streams);
 
             MessagePacker packer = MessagePack.newDefaultPacker(new FileOutputStream(fileName));
+            if(streamToMJS.size() != streamToQoS.size()) {
+                System.out.println("Error: size of streamToQoS != size of streamToMJS");
+            }
             packer.packInt(streamToMJS.size());
             for (String streamLabel : streamToMJS.keySet()) {
                 packer.packString(streamLabel);
                 packer.packDouble(streamToMJS.get(streamLabel));
+                packer.packDouble(streamToQoS.get(streamLabel));
             }
             generator.generateWorkload(packer, stoppingCriterion);
             packer.close();
@@ -166,13 +181,19 @@ public class Main {
     
         @Override public Integer call() throws Exception {
             System.out.println("Analyzing a workload");
+            if (!allStreams && streams == null) {
+                System.out.println("Error: put -A or list which streams you wish to analyze");
+            }
             MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(new FileInputStream(fileName));
             int n = unpacker.unpackInt();
             HashMap<String, Boolean> streamBool = new HashMap<String, Boolean>();
             for (int i = 0; i < n; i++) {
                 String streamLabel = unpacker.unpackString();
                 streamBool.put(streamLabel, allStreams || streams.contains(streamLabel));
-                unpacker.unpackDouble();
+                String out = streamLabel + ": mean job size = " + unpacker.unpackDouble() + ", QoS requirement = " + unpacker.unpackDouble();
+                if (streamBool.get(streamLabel)) {
+                    System.out.println(out);
+                }
             }
             int jobCount = 0;
             int batchCount = 0;
@@ -258,19 +279,25 @@ public class Main {
 
             PriorityQueue<Unpacker> unpackerPQ = new PriorityQueue<Unpacker>();
             HashMap<String, Double> streamToMJS = new HashMap<String, Double>();
+            HashMap<String, Double> streamToQoS = new HashMap<String, Double>();
             for (String fileName : fileNames) {
                 MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(new FileInputStream(fileName));
                 int n = unpacker.unpackInt();
                 for (int i = 0; i < n; i++) {
-                    streamToMJS.put(unpacker.unpackString(), unpacker.unpackDouble());
+                    String streamLabel = unpacker.unpackString();
+                    streamToMJS.put(streamLabel, unpacker.unpackDouble());
+                    streamToQoS.put(streamLabel, unpacker.unpackDouble());
                 }
                 unpackerPQ.add(new Unpacker(unpacker));
             }
-
+            if(streamToMJS.size() != streamToQoS.size()) {
+                System.out.println("Error: size of streamToQoS != size of streamToMJS");
+            }
             packer.packInt(streamToMJS.size());
             for (String streamLabel : streamToMJS.keySet()) {
                 packer.packString(streamLabel);
                 packer.packDouble(streamToMJS.get(streamLabel));
+                packer.packDouble(streamToQoS.get(streamLabel));
             }
 
             while(!unpackerPQ.isEmpty()) {
@@ -303,9 +330,12 @@ public class Main {
             MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(new FileInputStream(fileName));
 
             HashMap<String, Double> streamToMJS = new HashMap<String, Double>();
+            HashMap<String, Double> streamToQoS = new HashMap<String, Double>();
             int n = unpacker.unpackInt();
             for (int i = 0; i < n; i++) {
-                streamToMJS.put(unpacker.unpackString(), unpacker.unpackDouble());
+                String streamLabel = unpacker.unpackString();
+                streamToMJS.put(streamLabel, unpacker.unpackDouble());
+                streamToQoS.put(streamLabel, unpacker.unpackDouble());
             }
 
             ArrayList<Map> cloudMaps = new ArrayList<Map>();
@@ -321,33 +351,42 @@ public class Main {
             ArrayList<Cloud> clouds = new ArrayList<Cloud>(); //seens unnecessary but will keep for now
             for (Map cloudMap: cloudMaps) {
                 ArrayList<Server> serverPool = new ArrayList<Server>();
-                for (Map serverSet : (Map[]) cloudMap.get("serversets")) {
-                    int count = (int)serverSet.get("count");
-                    double rate = (double)serverSet.get("rate");
-                    int shared = (int)serverSet.get("shared");
-                    for (int i = count ; i > 0; i--) {
-                        if (i < shared) {
-                            federationPool.add(new Server(rate));
-                        } else {
-                            serverPool.add(new Server(rate));
-                        }
+                for (Map serverSet : (ArrayList<Map>) cloudMap.get("serversets")) {
+                    int count = Integer.parseInt((String)serverSet.get("count"));
+                    double rate = Double.parseDouble((String)serverSet.get("rate"));
+                    int shared = Integer.parseInt((String)serverSet.get("shared"));
+                    int local = count - shared;
+                    for (int i = 0 ; i < local; i++) {
+                        serverPool.add(new Server(rate));
+                    }
+                    for (int i = 0; i < shared; i++) {
+                        federationPool.add(new Server(rate));
                     }
                 }
                 Cloud cloud = new Cloud(serverPool);
-                for (String streamLabel : (String[]) cloudMap.get("streams")) {
+                for (String streamLabel : (ArrayList<String>) cloudMap.get("streams")) {
                     streamToCloud.put(streamLabel, cloud);
                 }
                 clouds.add(cloud);
             }
             Federation federation = new Federation(federationPool);
-
-            //DO THIS
-            HashMap<String, Double> streamToQoS = null;
-            //DO THIS
-
-            CloudSimulator cloudSim = new CloudSimulator(unpacker, streamToCloud, federation, clouds, streamToQoS, streamToMJS);
+            CloudSimulator cloudSim = new CloudSimulator(unpacker, federation, clouds, streamToCloud, streamToQoS, streamToMJS);
             cloudSim.doAllEvents();
             unpacker.close();
+
+            int completed = 0;
+            for (Cloud cloud : clouds) {
+                completed += cloud.completed;
+                System.out.println("Completed locally:" + cloud.completed);
+                System.out.println("Rejected to fed:" + cloud.rejected);
+                System.out.println("Rejected outright:" + cloud.rejectedOutright);
+                System.out.println("Rejection rate:" + (cloud.rejectedOutright/(double)(cloud.completed+cloud.rejected)));
+            }
+            completed += federation.completed;
+            System.out.println("Completed by federation:" + federation.completed);
+            System.out.println("Rejected by federation:" + federation.rejected);
+
+            System.out.println("Net rejection rate:" + (federation.rejected/(double)(completed+federation.rejected)));
             System.out.println("Finished simulation");
             return 0;
         }
