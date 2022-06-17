@@ -374,6 +374,7 @@ public class Main {
             cloudSim.doAllEvents();
             unpacker.close();
 
+            //basic testing
             int completed = 0;
             for (Cloud cloud : clouds) {
                 completed += cloud.completed;
@@ -381,12 +382,14 @@ public class Main {
                 System.out.println("Rejected to fed:" + cloud.rejected);
                 System.out.println("Rejected outright:" + cloud.rejectedOutright);
                 System.out.println("Rejection rate:" + (cloud.rejectedOutright/(double)(cloud.completed+cloud.rejected)));
+                System.out.println("queueNetMJS (should be zero):" + cloud.queueNetMJS);
             }
             completed += federation.completed;
             System.out.println("Completed by federation:" + federation.completed);
             System.out.println("Rejected by federation:" + federation.rejected);
-
             System.out.println("Net rejection rate:" + (federation.rejected/(double)(completed+federation.rejected)));
+
+
             System.out.println("Finished simulation");
             return 0;
         }

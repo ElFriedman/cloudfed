@@ -21,18 +21,20 @@ public class Server extends Event {
         pool.completed++;
 
         if (!pool.queue.isEmpty()) {
-            r = pool.queue.poll();
-            insert(simulator, r);
+            Request req = pool.queue.poll();
+            insert(simulator, req);
+            pool.queueNetMJS -= ((CloudSimulator) simulator).streamToMJS.get(req.streamLabel);
         } else {
             pool.freeServers.add(this);
         }
     }
 
-    public void insert (AbstractSimulator simulator, Request r) {
-        if (this.r != null) {
+    public void insert (AbstractSimulator simulator, Request req) {
+        if (r != null) {
+            
             System.out.println("Error: server is busy with another request");
         }
-        this.r = r;
+        r = req;
         double serviceTime = r.jobSize/workRate;
         time = ((Simulator) simulator).now().add(new BigDecimal(serviceTime));
         simulator.insert(this);

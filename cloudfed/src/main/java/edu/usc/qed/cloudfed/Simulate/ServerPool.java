@@ -1,6 +1,5 @@
 package edu.usc.qed.cloudfed.Simulate;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Queue;
@@ -12,7 +11,9 @@ public class ServerPool {
     public PriorityQueue<Server> freeServers;
     public Queue<Request> queue;
     public double netWorkRate;
-    public double queueNetJobSize;
+    public double queueNetMJS;
+
+    //basic testing
     public int completed = 0;
     public int rejected = 0;
     public int rejectedOutright = 0;
@@ -23,30 +24,29 @@ public class ServerPool {
         queue = new LinkedList<Request>();
         this.servers = servers;
         for (Server s : servers) {
+            netWorkRate += s.workRate;
             freeServers.add(s);
             s.pool = this;
         }
+        queueNetMJS = 0;
 
-        //predictedDueDates = new PriorityQueue<Predictor>();
     }
 
     public void insert (AbstractSimulator simulator, Request r) {
         if (!freeServers.isEmpty()) {
             freeServers.poll().insert(simulator, r);
         } else {
-            if (underCapacity(simulator)) {
+            if (underCapacity(simulator, r)) {
                 queue.add(r);
+                queueNetMJS += ((CloudSimulator) simulator).streamToMJS.get(r.streamLabel);
             } else {
                 reject(simulator, r);
             }
         }
     }
 
-    public boolean underCapacity (AbstractSimulator simulator) {
-        /*
-        HashMap<String, Double> streamToQoS = ((CloudSimulator) simulator).streamToQoS;
-        HashMap<String, Double> streamMJS = ((CloudSimulator) simulator).streamToMJS;*/
-        return false;
+    public boolean underCapacity (AbstractSimulator simulator, Request r) {        
+        return queueNetMJS/(netWorkRate) <= ((CloudSimulator) simulator).streamToQoS.get(r.streamLabel);
     }
 
     //can this be abstract or smth rather than this crap
@@ -54,38 +54,3 @@ public class ServerPool {
         System.out.println("this should not run ServerPool reject should be overwritten");
     }
 }
-
-/*
-
-    public Request putRequest (Request r, BigDecimal time) {
-        if (freeServers.isEmpty()) {
-            requestQueue.add(r);
-
-            BigDecimal newDueDate = predictedDueDates.poll().getDueDate().add(new BigDecimal(r.getJobSize()/workRate));
-            r.setDueDate(newDueDate);
-            r.waitedInQueue();
-            predictedDueDates.add(r);
-
-            return null;
-        } else {
-            Server s = freeServers.poll();
-            r.service(s, time);
-            
-            predictedDueDates.add(r);
-
-            return r;
-        }
-    }
-
-    //omniscient
-    public boolean underCapacity(double QoS, BigDecimal time) {
-        if (!freeServers.isEmpty()) {
-            return true;
-        }
-        if (predictedDueDates.peek().getDueDate().compareTo(new BigDecimal(QoS))>0) {
-            return true;
-        }
-        return false;
-
-    }
-*/
