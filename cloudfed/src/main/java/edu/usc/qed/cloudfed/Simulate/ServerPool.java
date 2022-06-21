@@ -1,7 +1,6 @@
 package edu.usc.qed.cloudfed.Simulate;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Queue;
 import java.util.PriorityQueue;
 import java.util.LinkedList;
@@ -13,7 +12,9 @@ public class ServerPool {
     public double netWorkRate;
     public double queueNetMJS;
 
-    //basic testing
+    public Listener listener;
+
+    //basic testing - sanity check
     public int completed = 0;
     public int rejected = 0;
     public int rejectedOutright = 0;
@@ -30,15 +31,18 @@ public class ServerPool {
         }
         queueNetMJS = 0;
 
+        listener = new Listener();
     }
 
     public void insert (AbstractSimulator simulator, Request r) {
         if (!freeServers.isEmpty()) {
             freeServers.poll().insert(simulator, r);
+            simulator.insert(new Service(r, ((Simulator)simulator).now()));
         } else {
             if (underCapacity(simulator, r)) {
                 queue.add(r);
                 queueNetMJS += ((CloudSimulator) simulator).streamToMJS.get(r.streamLabel);
+                simulator.insert(new Enqueuing(r, ((Simulator)simulator).now()));
             } else {
                 reject(simulator, r);
             }

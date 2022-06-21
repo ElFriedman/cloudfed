@@ -13,7 +13,7 @@ public class Request extends Event {
     }
 
     public void execute (AbstractSimulator simulator) {
-        System.out.println("Wee woo wee woo why are is this running");
+        System.out.println("Wee woo wee woo why is a request getting executed");
         getCloud(simulator).insert(simulator, this);
     }
 

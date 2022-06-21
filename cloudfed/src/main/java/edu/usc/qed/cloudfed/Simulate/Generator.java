@@ -19,6 +19,7 @@ public class Generator extends Event {
 
     public void execute (AbstractSimulator simulator) {
         nextRequest.getCloud(simulator).insert(simulator, nextRequest);
+        simulator.insert(new Arrival(nextRequest, ((Simulator)simulator).now()));
         try {
             if (unpacker.hasNext()) {
                 nextRequest = getRequest();

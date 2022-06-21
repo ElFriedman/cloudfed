@@ -317,6 +317,7 @@ public class Main {
     }
 
     @Command(name = "simulate", description = "Simulate a federation.")
+    //modeled after https://users.cs.northwestern.edu/~agupta/_projects/networking/QueueSimulation/mm1.html
     static class Simulate implements Callable<Integer> {
         @ParentCommand private Main parent;
 

@@ -9,9 +9,9 @@ import org.msgpack.core.MessageUnpacker;
 
 public class CloudSimulator extends Simulator {
     public MessageUnpacker unpacker;
-    public HashMap<String, Cloud> streamToCloud;
-    public Federation federation;
     public ArrayList<Cloud> clouds; //again, perhaps extraneous
+    public Federation federation;
+    public HashMap<String, Cloud> streamToCloud;
     public HashMap<String, Double> streamToQoS;
     public HashMap<String, Double> streamToMJS;
     
@@ -26,6 +26,4 @@ public class CloudSimulator extends Simulator {
         this.streamToMJS = streamToMJS;
         events.add(new Generator(unpacker, streamToCloud));
     }
-
-
 }
