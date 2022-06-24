@@ -5,26 +5,32 @@
 ### Workload Generation
 
 ```
-java -jar cloudfed.jar workload generate workload.msgpack "Job[1000]" "type1:10:Exp[1.5]:Dist[0.7:1,0.3:2]:Unif[1,2]" "type2:5.5:Exp[2]:Det[1]:Unif[3,4]" 
+java -jar cloudfed.jar workload generate workload1.msgpack "Job[1000]" "type1:10:Exp[1.5]:Dist[0.7:1,0.3:2]:Unif[1,2]" "type2:5.5:Exp[2]:Det[1]:Unif[3,4]" 
 ```
-
-Generate a workload file `workload.msgpack` with a stopping criterion and two streams of jobs:
-- '''type1''': QoS requirement of 10, exponential interarrival time with rate `1.5`, batch size of `1` with
+Generate  workload file `workload1.msgpack` with a stopping criterion and two streams of jobs, until `1000` jobs have been created
+- `type1`: QoS requirement of 10, exponential interarrival time with rate `1.5`, batch size of `1` with
   probability `0.7` or `2` with probability `0.3`, job size uniformly
   distributed in `[1,2]`
-- '''type1''': QoS requirement of 5.5, exponential interarrival time with rate `2`, batch size of `1`, job
+- `type2`: QoS requirement of 5.5, exponential interarrival time with rate `2`, batch size of `1`, job
   size uniformly distributed in `[3,4]`
-  
-Stopping criteria:
-- "Job\[1000]" generates 1000 jobs
-- "Time\[20.5]" generates jobs until t = 20.5
+```
+java -jar cloudfed.jar workload generate workload2.msgpack "Time[150] "type3:8:Exp[2]:Dist[0.9:1,0.05:2,0.05:3]:Unif[2,3]"
+```
+Generate  workload file `workload2.msgpack` with a stopping criterion and one stream of jobs, until time = `150`
+- `type1`: QoS requirement of `8`, exponential interarrival time with rate `2`, batch size of `1` with
+  probability `0.9` or `2` with probability `0.05` or `3` with probability `0.05`, job size uniformly
+  distributed in `[2,3]`
+
 
 ```
-java -jar cloudfed.jar workload info workload.msgpack
+java -jar cloudfed.jar workload info workload1.msgpack -A
+java -jar cloudfed.jar workload info workload2.msgpack "type3"
 ```
 
-Show workload information (end time, number of jobs, mean interarrival time,
+Show workload information of selected streams (end time, number of jobs, mean interarrival time,
 mean batch size, mean job size).
+- If `-A` or `--all` is added, all streams are selected
+- Otherwise, only listed streams are selected
 
 ```
 java -jar cloudfed.jar workload merge new-workload.msgpack workload1.msgpack workload2.msgpack
