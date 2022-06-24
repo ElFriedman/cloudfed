@@ -350,6 +350,7 @@ public class Main {
             ArrayList<Server> federationPool = new ArrayList<Server>();
             HashMap<String, Cloud> streamToCloud = new HashMap<String, Cloud>();
             ArrayList<Cloud> clouds = new ArrayList<Cloud>(); //seens unnecessary but will keep for now
+            int j = 0;
             for (Map cloudMap: cloudMaps) {
                 ArrayList<Server> serverPool = new ArrayList<Server>();
                 for (Map serverSet : (ArrayList<Map>) cloudMap.get("serversets")) {
@@ -358,39 +359,62 @@ public class Main {
                     int shared = Integer.parseInt((String)serverSet.get("shared"));
                     int local = count - shared;
                     for (int i = 0 ; i < local; i++) {
-                        serverPool.add(new Server(rate));
+                        serverPool.add(new Server(rate, j));
+                        j++;
                     }
                     for (int i = 0; i < shared; i++) {
-                        federationPool.add(new Server(rate));
+                        federationPool.add(new Server(rate, j));
+                        j++;
                     }
                 }
-                Cloud cloud = new Cloud(serverPool);
+                Cloud cloud = new Cloud(serverPool, clouds.size());
                 for (String streamLabel : (ArrayList<String>) cloudMap.get("streams")) {
                     streamToCloud.put(streamLabel, cloud);
                 }
                 clouds.add(cloud);
             }
             Federation federation = new Federation(federationPool);
-            CloudSimulator cloudSim = new CloudSimulator(unpacker, federation, clouds, streamToCloud, streamToQoS, streamToMJS);
+            MessagePacker packer = MessagePack.newDefaultPacker(new FileOutputStream(outputFileName));
+            CloudSimulator cloudSim = new CloudSimulator(unpacker, packer, federation, clouds, streamToCloud, streamToQoS, streamToMJS);
             cloudSim.doAllEvents();
             unpacker.close();
+            packer.close();
 
             //basic testing
+            System.out.println("Basic tests - server counts");
             int completed = 0;
-            for (Cloud cloud : clouds) {
+            for (int i = 0; i < clouds.size(); i++) {
+                Cloud cloud = clouds.get(i);
+                System.out.println("cloud"+i);
                 completed += cloud.completed;
-                System.out.println("Completed locally:" + cloud.completed);
-                System.out.println("Rejected to fed:" + cloud.rejected);
-                System.out.println("Rejected outright:" + cloud.rejectedOutright);
-                System.out.println("Rejection rate:" + (cloud.rejectedOutright/(double)(cloud.completed+cloud.rejected)));
-                System.out.println("queueNetMJS (should be zero):" + cloud.queueNetMJS);
+                System.out.println("\tCompleted locally:" + cloud.completed);
+                System.out.println("\tRejected to fed:" + cloud.rejected);
+                System.out.println("\tRejected outright:" + cloud.rejectedOutright);
+                System.out.println("\tRejection rate:" + (cloud.rejectedOutright/(double)(cloud.completed+cloud.rejected)));
             }
             completed += federation.completed;
             System.out.println("Completed by federation:" + federation.completed);
             System.out.println("Rejected by federation:" + federation.rejected);
             System.out.println("Net rejection rate:" + (federation.rejected/(double)(completed+federation.rejected)));
+            System.out.println("Finished simulation");
 
-
+            //basic testing
+            System.out.println("Basic tests - listeners");
+            completed = 0;
+            for (int i = 0; i < clouds.size(); i++) {
+                Listener l = clouds.get(i).listener;
+                System.out.println("cloud"+i);
+                completed += l.arrivals-l.rejections;
+                System.out.println("\tCompleted locally:" + (l.arrivals-l.rejections));
+                System.out.println("\tRejected to fed:" + l.rejections);
+                System.out.println("\tRejected outright:" + (l.arrivals-l.departures));
+                System.out.println("\tRejection rate:" + (l.arrivals-l.departures)/(double)(l.arrivals));
+            }
+            Listener f = federation.listener;
+            completed += f.departures;
+            System.out.println("Completed by federation:" + f.departures);
+            System.out.println("Rejected by federation:" + f.rejections);
+            System.out.println("Net rejection rate:" + (f.rejections/(double)(completed+f.rejections)));
             System.out.println("Finished simulation");
             return 0;
         }
@@ -400,8 +424,94 @@ public class Main {
     static class Metrics implements Callable<Integer> {
         @ParentCommand private Main parent;
 
+        @Parameters (index = "0") private String inputFileName;
+
         @Override public Integer call() throws Exception {
             System.out.println("Computing metrics");
+            MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(new FileInputStream(inputFileName));
+            int c = unpacker.unpackInt();
+            for (int i = 0; i < c; i++) {
+                int cloudID = unpacker.unpackInt();
+                //System.out.println("cloud"+cloudID);
+                int n = unpacker.unpackInt();
+                for (int j = 0; j < n; j++) {
+                    int serverID = unpacker.unpackInt();
+                    double workRate = unpacker.unpackDouble();
+                    //System.out.println("\tserver" + serverID + " - work rate: " + workRate);
+                }
+            }
+            int fedID = unpacker.unpackInt();
+            if (fedID != -1) {
+                System.out.println("something went big wrong bc fed ID aint -1");
+            }
+            //System.out.println("fed");
+            int m = unpacker.unpackInt();
+            for (int i = 0; i < m; i++) {
+                int serverID = unpacker.unpackInt();
+                double workRate = unpacker.unpackDouble();
+                //System.out.println("\tserver" + serverID + " - work rate: " + workRate);
+            }
+            int[] arrivals = new int [c];
+            int[] departures = new int [c]; //total departures
+            int[] rejections = new int [c]; //local arrivals
+            //hence outright rejections = A-D, local departures = A-R, and fed departures = D-R
+            int fedArrivals = 0;
+            int fedDepartures = 0;
+            int fedRejections = 0;
+            HashMap<Integer, Integer> requestToCloud = new HashMap<Integer, Integer> ();
+            while (unpacker.hasNext()) {
+                int requestID = unpacker.unpackInt();
+                int poolID = unpacker.unpackInt();
+                String time = unpacker.unpackString();
+                Noise.Type type = Noise.Type.valueOf(unpacker.unpackString());
+                int serverID;
+                switch (type) {
+                    case ARR:
+                        if (poolID == -1) {
+                            fedArrivals++;
+                        } else {
+                            arrivals[poolID]+=1;
+                        }
+                        requestToCloud.put(requestID, poolID);
+                        double jobSize = unpacker.unpackDouble();
+                        String streamLabel = unpacker.unpackString();
+                        break;
+                    case DEP:
+                        if (poolID == -1) {
+                            fedDepartures++;
+                            departures[requestToCloud.get(requestID)]++;
+                        } else {
+                            departures[poolID]+=1;
+                        }
+                        serverID = unpacker.unpackInt();
+                        break;
+                    case REJ:
+                        if (poolID == -1) {
+                            fedRejections++;
+                        } else {
+                            rejections[poolID]+=1;
+                        }
+                        break;
+                    case ENQ:
+                        break;
+                    case SER:
+                        serverID = unpacker.unpackInt();
+                        break;
+                }
+            }
+            int completed = 0;
+            for (int i = 0; i < c; i++) {
+                System.out.println("cloud"+i);
+                System.out.println("\tCompleted locally:" + (arrivals[i]-rejections[i]));
+                completed += arrivals[i]-rejections[i];
+                System.out.println("\tRejected to fed:" + rejections[i]);
+                System.out.println("\tRejected outright:" + (arrivals[i]-departures[i]));
+                System.out.println("\tRejection rate:" + ((arrivals[i]-departures[i])/(double)(arrivals[i])));
+            }
+            completed += fedDepartures;
+            System.out.println("Completed by federation:" + fedDepartures);
+            System.out.println("Rejected by federation:" + fedRejections);
+            System.out.println("Net rejection rate:" + (fedRejections/(double)(completed+fedRejections)));
             return 0;
         }
     }

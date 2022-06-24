@@ -4,13 +4,14 @@ import java.util.ArrayList;
 
 public class Federation extends ServerPool {
     public Federation (ArrayList<Server> servers) {
-        super(servers);
+        super(servers, -1, "Fed");
     }
 
     @Override
     public void reject (AbstractSimulator simulator, Request r) {
-        //do smth. notify da peeps
+        //relpace this
         rejected++;
         r.getCloud(simulator).rejectedOutright++;
+        simulator.insert(new Rejection(r, ((Simulator)simulator).now(), this));
     }
 }

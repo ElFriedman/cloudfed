@@ -8,3 +8,6 @@ java -jar target/cloudfed.jar workload merge target/workload.msgpack target/work
 java -jar target/cloudfed.jar workload info target/workload.msgpack -A
 
 java -jar target/cloudfed.jar simulate simulate.yaml output.txt
+
+
+java -jar target/cloudfed.jar metrics output.txt

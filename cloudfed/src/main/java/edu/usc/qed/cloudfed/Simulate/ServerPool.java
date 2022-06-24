@@ -5,12 +5,15 @@ import java.util.Queue;
 import java.util.PriorityQueue;
 import java.util.LinkedList;
 
-public class ServerPool {
+public abstract class ServerPool {
     public ArrayList<Server> servers; //might be unnecessary - check back later
     public PriorityQueue<Server> freeServers;
     public Queue<Request> queue;
     public double netWorkRate;
     public double queueNetMJS;
+    
+    public int ID;
+    public String label;
 
     public Listener listener;
 
@@ -19,7 +22,7 @@ public class ServerPool {
     public int rejected = 0;
     public int rejectedOutright = 0;
 
-    public ServerPool (ArrayList<Server> servers) {
+    public ServerPool (ArrayList<Server> servers, int ID, String label) {
         //check if this comparator properly overrides Comparable with time
         freeServers = new PriorityQueue<Server>((Server s1, Server s2) -> (int)(s1.workRate-s2.workRate)); 
         queue = new LinkedList<Request>();
@@ -31,18 +34,19 @@ public class ServerPool {
         }
         queueNetMJS = 0;
 
+        this.ID = ID;
+        this.label = label;
         listener = new Listener();
     }
 
     public void insert (AbstractSimulator simulator, Request r) {
         if (!freeServers.isEmpty()) {
             freeServers.poll().insert(simulator, r);
-            simulator.insert(new Service(r, ((Simulator)simulator).now()));
         } else {
             if (underCapacity(simulator, r)) {
                 queue.add(r);
                 queueNetMJS += ((CloudSimulator) simulator).streamToMJS.get(r.streamLabel);
-                simulator.insert(new Enqueuing(r, ((Simulator)simulator).now()));
+                simulator.insert(new Enqueuing(r, ((Simulator)simulator).now(), this));
             } else {
                 reject(simulator, r);
             }
@@ -50,11 +54,9 @@ public class ServerPool {
     }
 
     public boolean underCapacity (AbstractSimulator simulator, Request r) {        
-        return queueNetMJS/(netWorkRate) <= ((CloudSimulator) simulator).streamToQoS.get(r.streamLabel);
+        return queueNetMJS/netWorkRate <= ((CloudSimulator) simulator).streamToQoS.get(r.streamLabel);
     }
 
     //can this be abstract or smth rather than this crap
-    public void reject (AbstractSimulator simulator, Request r) {
-        System.out.println("this should not run ServerPool reject should be overwritten");
-    }
+    public abstract void reject (AbstractSimulator simulator, Request r);
 }

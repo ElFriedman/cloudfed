@@ -5,11 +5,13 @@ import java.math.BigDecimal;
 public class Request extends Event {
     public double jobSize;
     public String streamLabel;
+    public int ID;
     
-    public Request (String streamLabel, BigDecimal time, double jobSize) {
+    public Request (String streamLabel, BigDecimal time, double jobSize, int ID) {
         this.time = time;
         this.jobSize = jobSize;
         this.streamLabel = streamLabel;
+        this.ID = ID;
     }
 
     public void execute (AbstractSimulator simulator) {

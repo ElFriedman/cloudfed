@@ -1,36 +1,31 @@
 package edu.usc.qed.cloudfed.Simulate;
 
 public class Listener {
+    public int arrivals;
+    public int departures;
+    public int rejections;
+    
     public Listener () {
-
+        arrivals = 0;
+        departures = 0;
+        rejections = 0;
     }
 
     public void notify(Noise e) {
         Noise.Type t = e.getType();
         switch (t) {
             case ARR:
-                System.out.println();
+                arrivals++;
                 break;
-
             case DEP:
-                System.out.println();
+                departures++;
                 break;
-
-            
             case REJ:
-                System.out.println();
+                rejections++;
                 break;
-            
             case ENQ:
-                System.out.println();
                 break;
-
-            case DEQ:
-                System.out.println();
-                break;
-
             case SER:
-                System.out.println();
                 break;
         }
     }
