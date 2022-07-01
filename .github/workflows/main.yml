@@ -12,8 +12,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-      with:
-        ref: elifriedman
+    - run: |
+        git fetch
+        git checkout elifriedman
+      
     
     - name: Set up JDK 18
       uses: actions/setup-java@v3
