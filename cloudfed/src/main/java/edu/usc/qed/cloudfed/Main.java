@@ -2,6 +2,7 @@ package edu.usc.qed.cloudfed;
 
 import java.util.concurrent.Callable;
 import java.util.random.RandomGenerator;
+import java.util.random.RandomGeneratorFactory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +44,9 @@ import com.esotericsoftware.yamlbeans.YamlReader;
          subcommands = { Main.Workload.class, Main.Simulate.class, Main.Metrics.class })
 public class Main {
     private final static Logger logger =  LoggerFactory.getLogger(Main.class); //what is this for
+    private final static long seed = 0;
+    private static RandomGeneratorFactory<RandomGenerator> RGF = RandomGeneratorFactory.of("Random");
+    private final static RandomGenerator rng = RGF.create(seed);
 
     @Option(names = "--verbose", defaultValue = "false", scope = ScopeType.INHERIT,
             description = "Log additional debugging information (default: ${DEFAULT-VALUE})")
@@ -73,7 +77,7 @@ public class Main {
         @Override public Integer call() throws Exception {
             System.out.println("Genenerating a workload");
             
-            RandomGenerator rng = RandomGenerator.getDefault();
+            //RandomGenerator rng = RandomGenerator.getDefault(); //allow seed usage
 
             //stopping criteria
             StoppingCriterion stoppingCriterion = null;
