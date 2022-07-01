@@ -1,6 +1,9 @@
 name: Unit Test seed = "QED"
 
-on: [push]
+on:
+  push:
+    branches:
+      - elifriedman
 
 jobs:
   build:
