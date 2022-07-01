@@ -19,8 +19,5 @@ jobs:
         java-version: '18'
         distribution: 'adopt'
 
-    - name: Install Dependencies
-      run: mvn --batch-mode --update-snapshots package
-
     - name: JavaMake
       run: ./generate_jar.sh && ./simulate.sh
