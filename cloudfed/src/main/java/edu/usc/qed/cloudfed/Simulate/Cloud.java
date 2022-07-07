@@ -10,8 +10,8 @@ public class Cloud extends ServerPool {
     }
 
     @Override
-    public void reject (AbstractSimulator simulator, Request r) {
-        rejected++;
+    public void reject (AbstractSimulator simulator, Request r) throws Exception {
+        overflow++;
         ((CloudSimulator)simulator).federation.insert(simulator, r);
         simulator.insert(new Rejection(r, ((Simulator)simulator).now(), this));
     }

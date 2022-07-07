@@ -1,6 +1,5 @@
 package edu.usc.qed.cloudfed.Simulate;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 
 public class Departure extends Noise {
@@ -12,18 +11,12 @@ public class Departure extends Noise {
     }
 
     @Override
-    public void execute (AbstractSimulator simulator) {
+    public void execute (AbstractSimulator simulator) throws Exception {
         pool.listener.notify(this);
         if (pool.ID == -1) {  //if pool is the federation, then also have to notify cloud of Noise
             r.getCloud(simulator).listener.notify(this);
         }
-        try {
-            simulator.log(this);
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            System.out.println("Couldn't log noise");
-            e.printStackTrace();
-        }
+        simulator.log(this);
     }
     public Type getType() {
         return Type.DEP;

@@ -9,7 +9,7 @@ public abstract class Simulator extends AbstractSimulator {
         return time;
     }
 
-    public void doAllEvents () {
+    public void doAllEvents () throws Exception {
         Event e;
         while ((e = (Event) events.poll()) != null) {
             time = e.time;

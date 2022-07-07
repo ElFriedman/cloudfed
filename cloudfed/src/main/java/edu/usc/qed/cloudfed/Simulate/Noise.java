@@ -1,6 +1,5 @@
 package edu.usc.qed.cloudfed.Simulate;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 
 public abstract class Noise extends Event {
@@ -15,15 +14,9 @@ public abstract class Noise extends Event {
         this.pool = pool;
     }
     
-    public void execute (AbstractSimulator simulator) {
+    public void execute (AbstractSimulator simulator) throws Exception {
         pool.listener.notify(this);
-        try {
-            simulator.log(this);
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            System.out.println("Couldn't log noise");
-            e.printStackTrace();
-        }
+        simulator.log(this);
     }
 
     public abstract Type getType();

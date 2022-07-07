@@ -3,12 +3,12 @@ package edu.usc.qed.cloudfed.Simulate;
 public class Listener {
     public int arrivals;
     public int departures;
-    public int rejections;
+    public int overflow;
     
     public Listener () {
         arrivals = 0;
         departures = 0;
-        rejections = 0;
+        overflow = 0;
     }
 
     public void notify(Noise e) {
@@ -21,7 +21,7 @@ public class Listener {
                 departures++;
                 break;
             case REJ:
-                rejections++;
+                overflow++;
                 break;
             case ENQ:
                 break;

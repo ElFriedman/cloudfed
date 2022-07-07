@@ -19,8 +19,8 @@ public abstract class ServerPool {
 
     //basic testing - sanity check
     public int completed = 0;
+    public int overflow = 0;
     public int rejected = 0;
-    public int rejectedOutright = 0;
 
     public ServerPool (ArrayList<Server> servers, int ID, String label) {
         //check if this comparator properly overrides Comparable with time
@@ -39,7 +39,7 @@ public abstract class ServerPool {
         listener = new Listener();
     }
 
-    public void insert (AbstractSimulator simulator, Request r) {
+    public void insert (AbstractSimulator simulator, Request r) throws Exception {
         if (!freeServers.isEmpty()) {
             freeServers.poll().insert(simulator, r);
         } else {
@@ -58,5 +58,5 @@ public abstract class ServerPool {
     }
 
     //can this be abstract or smth rather than this crap
-    public abstract void reject (AbstractSimulator simulator, Request r);
+    public abstract void reject (AbstractSimulator simulator, Request r) throws Exception;
 }

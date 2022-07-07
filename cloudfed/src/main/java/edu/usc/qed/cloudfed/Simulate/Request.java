@@ -14,9 +14,8 @@ public class Request extends Event {
         this.ID = ID;
     }
 
-    public void execute (AbstractSimulator simulator) {
-        System.out.println("Wee woo wee woo why is a request getting executed");
-        getCloud(simulator).insert(simulator, this);
+    public void execute (AbstractSimulator simulator) throws Exception {
+        throw new Exception("Wee woo wee woo why is a request getting executed");
     }
 
     public Cloud getCloud(AbstractSimulator simulator) {

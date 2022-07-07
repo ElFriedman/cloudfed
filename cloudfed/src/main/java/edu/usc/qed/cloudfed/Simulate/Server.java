@@ -15,7 +15,7 @@ public class Server extends Event {
     }
 
     //finish task
-    public void execute (AbstractSimulator simulator) {
+    public void execute (AbstractSimulator simulator) throws Exception {
         simulator.insert(new Departure(r, ((Simulator)simulator).now(), pool, this));
         pool.completed++;
 
@@ -29,9 +29,9 @@ public class Server extends Event {
         }
     }
 
-    public void insert (AbstractSimulator simulator, Request r) {
+    public void insert (AbstractSimulator simulator, Request r) throws Exception {
         if (this.r != null) {
-            System.out.println("Error: server is busy with another request");
+            throw new Exception("Error: server is busy with another request");
         }
         this.r = r;
         simulator.insert(new Servicing(r, ((Simulator)simulator).now(), pool, this));

@@ -19,7 +19,7 @@ public class Generator extends Event {
         nextRequest = getRequest();
     }
 
-    public void execute (AbstractSimulator simulator) {
+    public void execute (AbstractSimulator simulator) throws Exception {
         nextRequest.getCloud(simulator).insert(simulator, nextRequest);
         simulator.insert(new Arrival(nextRequest, ((Simulator)simulator).now(), nextRequest.getCloud(simulator)));
         try {

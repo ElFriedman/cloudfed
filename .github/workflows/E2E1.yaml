@@ -1,4 +1,4 @@
-name: Unit Test seed = "QED"
+name: E2E Test
 
 on: ["push"]
 jobs:
@@ -22,4 +22,4 @@ jobs:
     - name: JavaRun
       run: |
         cd cloudfed
-        ./simulate.sh
+        ./sim_E2E1.sh
