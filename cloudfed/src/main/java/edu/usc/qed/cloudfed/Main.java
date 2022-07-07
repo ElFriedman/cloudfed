@@ -476,6 +476,7 @@ public class Main {
         @Parameters (index = "0") private String inputFileName;
         @Option(names = {"-U", "--unitTest"}) private boolean unitTest;
         @Option(names = {"-E", "--endToEnd"}) private boolean endToEnd;
+        @Option(names = {"-C", "--chart"}) private boolean chartBool;
 
         @Override public Integer call() throws Exception {
             System.out.println("Computing metrics");
@@ -630,14 +631,16 @@ public class Main {
                 System.out.println("E2E");
             }
 
-            
-            chart = new TimeSeriesChart("Rejection Rate over Time", dataset);  
-            chart.setSize(800, 400);  
-            chart.setLocationRelativeTo(null);
-            chart.setVisible(true);  
-            chart.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+            if (chartBool) {
+                chart = new TimeSeriesChart("Rejection Rate over Time", dataset);  
+                chart.setSize(800, 400);  
+                chart.setLocationRelativeTo(null);
+                chart.setVisible(true);  
+                chart.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+    
+                ChartUtils.saveChartAsPNG(new File("soft3d.png"), chart.chart, 400, 300);
 
-            ChartUtils.saveChartAsPNG(new File("soft3d.png"), chart.chart, 400, 300);
+            }
             return 0;
         }
     }
