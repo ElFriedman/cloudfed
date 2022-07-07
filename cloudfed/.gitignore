@@ -21,3 +21,6 @@ buildNumber.properties
 .factorypath
 .apt_generated/
 .apt_generated_tests/
+output_unit.txt
+output_E2E1.txt
+soft3d.png
