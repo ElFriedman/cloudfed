@@ -5,16 +5,16 @@
 ### Workload Generation
 
 ```
-java -jar cloudfed.jar workload generate workload1.msgpack "Job[1000]" "type1:10:Exp[1.5]:Dist[0.7:1,0.3:2]:Unif[1,2]" "type2:5.5:Exp[2]:Det[1]:Unif[3,4]" 
+java -jar cloudfed.jar workload generate workload1.msgpack "Job[1000]" -S "0" "type1:10:Exp[1.5]:Dist[0.7:1,0.3:2]:Unif[1,2]" "type2:5.5:Exp[2]:Det[1]:Unif[3,4]" 
 ```
-Generate  workload file `workload1.msgpack` with a stopping criterion and two streams of jobs, until `1000` jobs have been created
+Generate  workload file `workload1.msgpack` with a stopping criterion and two streams of jobs, until `1000` jobs have been created, with seed for random generator `0`
 - `type1`: QoS requirement of `10`, exponential interarrival time with rate `1.5`, batch size of `1` with
   probability `0.7` or `2` with probability `0.3`, job size uniformly
   distributed in `[1,2]`
 - `type2`: QoS requirement of `5.5`, exponential interarrival time with rate `2`, batch size of `1`, job
   size uniformly distributed in `[3,4]`
 ```
-java -jar cloudfed.jar workload generate workload2.msgpack "Time[150] "type3:8:Exp[2]:Dist[0.9:1,0.05:2,0.05:3]:Unif[2,3]"
+java -jar cloudfed.jar workload generate workload2.msgpack "Time[150] "type3:8:Exp[2]:Dist[0.9:1,0.05:2,0.05:3]:Unif[2,3]" with random seed a
 ```
 Generate  workload file `workload2.msgpack` with a stopping criterion and one stream of jobs, until time = `150`
 - `type1`: QoS requirement of `8`, exponential interarrival time with rate `2`, batch size of `1` with
@@ -41,11 +41,33 @@ Merge multiple workloads.
 ### Simulation
 
 ```
-java -jar cloudfed.jar simulate --cloud type1,100:2.0:50,20:1.0:5 --cloud type2,100:1.0:100 workload.msgpack output.msgpack
+java -jar target/cloudfed.jar simulate simulate.yaml output.msgpack
 ```
-
+simulate.yaml
+```
+---
+ fileName: target/workload.msgpack
+---
+ streams:
+   - type1
+   - type3
+ serversets:
+   - count: 100
+     rate: 2.0
+     shared: 50
+   - count: 20
+     rate: 1.0
+     shared: 5
+---
+ streams:
+   - type2
+ serversets:
+   - count: 100
+     rate: 1.0
+     shared: 100
+```
 Simulate the input stream of jobs `workload.msgpack` by routing:
-- Jobs of `type1` to a cloud with: `100` servers with rate `2.0`, `50` of which
+- Jobs of `type1` and `type3` to a cloud with: `100` servers with rate `2.0`, `50` of which
   are shared with the federation; `20` servers with rate `1.0`, `5` of which are
   shared with the federation.
 - Jobs of `type2` to a cloud with: `100` servers with rate `1.0`, all shared
@@ -57,10 +79,11 @@ The output file `output.msgpack` includes information of each job of the workloa
 ### Output Analysis
 
 ```
-java -jar cloudfed.jar metrics output.msgpack
+java -jar cloudfed.jar metrics output.msgpack -C
 ```
 
-Computes relevant metrics.
+Computes forwarding and rejection rates for each cloud as well as the federation as a whole.
+- `-C` charts the cumulative rejection rate over time
 
 
 ## Development
@@ -111,17 +134,18 @@ Please check out modern Java features and libraries including:
 - [BigDecimal](https://docs.oracle.com/en/java/javase/18/docs/api/java.base/java/math/BigDecimal.html)
 - [PriorityQueue](https://docs.oracle.com/en/java/javase/18/docs/api/java.base/java/util/PriorityQueue.html)
 
-### Running Tests and Checking Coverage
 
-```
-cd cloudfed
-bash coverage.sh
-cat coverage.txt
-```
 
 ### Generating an Executable Jar (for release)
 
 ```
 cd cloudfed
 bash generate_jar.sh
+```
+
+### Running Unit Test
+
+```
+cd cloudfed
+bash simulate_unit_test.sh
 ```
