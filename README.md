@@ -16,7 +16,7 @@ Generate  workload file `workload1.msgpack` with a stopping criterion and two st
 ```
 java -jar cloudfed.jar workload generate workload2.msgpack "Time[150] "type3:8:Exp[2]:Dist[0.9:1,0.05:2,0.05:3]:Unif[2,3]" with random seed a
 ```
-Generate  workload file `workload2.msgpack` with a stopping criterion and one stream of jobs, until time = `150`
+Generate  workload file `workload2.msgpack` with a stopping criterion and one stream of jobs, until time = `150`, with random seed as none was inputted
 - `type1`: QoS requirement of `8`, exponential interarrival time with rate `2`, batch size of `1` with
   probability `0.9` or `2` with probability `0.05` or `3` with probability `0.05`, job size uniformly
   distributed in `[2,3]`
