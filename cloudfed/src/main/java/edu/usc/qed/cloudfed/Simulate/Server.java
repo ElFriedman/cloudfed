@@ -16,7 +16,9 @@ public class Server extends Event {
 
     //finish task
     public void execute (AbstractSimulator simulator) throws Exception {
-        simulator.insert(new Departure(r, ((Simulator)simulator).now(), pool, this));
+        Departure x = new Departure(r, ((Simulator)simulator).now(), pool, this);
+        x.execute(simulator);
+
         pool.completed++;
 
         r = null;
@@ -34,7 +36,8 @@ public class Server extends Event {
             throw new Exception("Error: server is busy with another request");
         }
         this.r = r;
-        simulator.insert(new Servicing(r, ((Simulator)simulator).now(), pool, this));
+        Servicing x = new Servicing(r, ((Simulator)simulator).now(), pool, this);
+        x.execute(simulator);
         double serviceTime = r.jobSize/workRate;
         time = ((Simulator) simulator).now().add(new BigDecimal(serviceTime));
         simulator.insert(this);

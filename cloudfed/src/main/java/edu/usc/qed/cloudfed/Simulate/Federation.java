@@ -8,10 +8,11 @@ public class Federation extends ServerPool {
     }
 
     @Override
-    public void reject (AbstractSimulator simulator, Request r) {
+    public void reject (AbstractSimulator simulator, Request r) throws Exception {
         //relpace this
         overflow++;
         r.getCloud(simulator).rejected++;
-        simulator.insert(new Rejection(r, ((Simulator)simulator).now(), this));
+        Rejection x = new Rejection(r, ((Simulator)simulator).now(), this);
+        x.execute(simulator);
     }
 }

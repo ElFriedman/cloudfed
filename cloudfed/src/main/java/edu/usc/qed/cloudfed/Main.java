@@ -513,10 +513,10 @@ public class Main {
             HashMap<Integer, Integer> requestToCloud = new HashMap<Integer, Integer> ();
 
             TimeSeriesCollection dataset = new TimeSeriesCollection();  
-            TimeSeries net = new TimeSeries("Series1");  
+            TimeSeries net = new TimeSeries("net");  
             int totalDepartures = 0;
-            TimeSeries lastX = new TimeSeries("Series1");
-            int x = 10000;
+            TimeSeries lastX = new TimeSeries("last 100000");
+            int x = 100000;
             int currSum = 0;
             Queue<Integer> toRemove = new LinkedList<Integer>();
 
@@ -546,7 +546,7 @@ public class Main {
                             departures[poolID]+=1;
                         }
                         totalDepartures += 1;
-                        if (totalDepartures%100 == 0) {
+                        if (totalDepartures%1000 == 0) {
                             net.add(new FixedMillisecond(totalDepartures + fedRejections), fedRejections/(double)totalDepartures);
                         }
                         currSum += 0;
@@ -554,7 +554,7 @@ public class Main {
                         if (toRemove.size() > x) {
                             currSum -= toRemove.poll();
                         }
-                        if (totalDepartures%100 == 0) {
+                        if (totalDepartures%1000 == 0) {
                             lastX.add(new FixedMillisecond(totalDepartures + fedRejections), currSum/(double)toRemove.size());
                         }
                         break;
@@ -570,7 +570,7 @@ public class Main {
                             if (toRemove.size() > x) {
                                 currSum -= toRemove.poll();
                             }
-                            if (totalDepartures%100 == 0) {
+                            if (totalDepartures%1000 == 0) {
                                 lastX.add(new FixedMillisecond(totalDepartures + fedRejections), currSum/(double)toRemove.size());
                             }
                         } else {
@@ -638,7 +638,7 @@ public class Main {
                 chart.setVisible(true);  
                 chart.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
     
-                ChartUtils.saveChartAsPNG(new File("soft3d.png"), chart.chart, 400, 300);
+                ChartUtils.saveChartAsPNG(new File("soft3d.png"), chart.chart, 1200, 900);
 
             }
             return 0;

@@ -46,7 +46,8 @@ public abstract class ServerPool {
             if (underCapacity(simulator, r)) {
                 queue.add(r);
                 queueNetMJS += ((CloudSimulator) simulator).streamToMJS.get(r.streamLabel);
-                simulator.insert(new Enqueuing(r, ((Simulator)simulator).now(), this));
+                Enqueuing x = new Enqueuing(r, ((Simulator)simulator).now(), this);
+                x.execute(simulator);
             } else {
                 reject(simulator, r);
             }
@@ -57,6 +58,5 @@ public abstract class ServerPool {
         return queueNetMJS/netWorkRate <= ((CloudSimulator) simulator).streamToQoS.get(r.streamLabel);
     }
 
-    //can this be abstract or smth rather than this crap
     public abstract void reject (AbstractSimulator simulator, Request r) throws Exception;
 }

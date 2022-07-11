@@ -21,7 +21,8 @@ public class Generator extends Event {
 
     public void execute (AbstractSimulator simulator) throws Exception {
         nextRequest.getCloud(simulator).insert(simulator, nextRequest);
-        simulator.insert(new Arrival(nextRequest, ((Simulator)simulator).now(), nextRequest.getCloud(simulator)));
+        Arrival x = new Arrival(nextRequest, ((Simulator)simulator).now(), nextRequest.getCloud(simulator));
+        x.execute(simulator);
         try {
             if (unpacker.hasNext()) {
                 nextRequest = getRequest();
