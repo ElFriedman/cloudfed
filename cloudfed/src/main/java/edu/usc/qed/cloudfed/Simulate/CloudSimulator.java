@@ -29,7 +29,7 @@ public class CloudSimulator extends Simulator {
         this.streamToQoS = streamToQoS;
         this.streamToMJS = streamToMJS;
         events.add(new Generator(unpacker, streamToCloud));
-        //logServers(); 
+        logServers(); 
     }
 
     //Prints the info on the servers of all clouds
