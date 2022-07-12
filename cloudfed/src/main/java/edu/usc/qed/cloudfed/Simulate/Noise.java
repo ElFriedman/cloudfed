@@ -1,7 +1,10 @@
 package edu.usc.qed.cloudfed.Simulate;
 
 import java.math.BigDecimal;
-
+/*
+ * Noises are events that contain information on the movement of requests
+ * Subclasses: arrival, departure, rejection, enqueuing, servicing
+ */
 public abstract class Noise extends Event {
     public Request r;
     public ServerPool pool;

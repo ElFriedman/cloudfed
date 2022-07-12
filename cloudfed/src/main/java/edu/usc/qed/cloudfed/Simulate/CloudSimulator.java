@@ -17,6 +17,7 @@ public class CloudSimulator extends Simulator {
     public HashMap<String, Double> streamToQoS;
     public HashMap<String, Double> streamToMJS;
     
+    //Constructor initializes everything
     public CloudSimulator (MessageUnpacker unpacker, MessagePacker packer, Federation federation, ArrayList<Cloud> clouds, 
     HashMap<String, Cloud> streamToCloud, HashMap<String, Double> streamToQoS, HashMap<String, Double> streamToMJS) throws IOException {
         events = new PriorityQueue<>();
@@ -28,9 +29,10 @@ public class CloudSimulator extends Simulator {
         this.streamToQoS = streamToQoS;
         this.streamToMJS = streamToMJS;
         events.add(new Generator(unpacker, streamToCloud));
-        logServers();
+        //logServers(); 
     }
 
+    //Prints the info on the servers of all clouds
     public void logServers () throws IOException {
         packer.packInt(clouds.size());
         for (Cloud cloud : clouds) {
@@ -51,7 +53,7 @@ public class CloudSimulator extends Simulator {
         }
     }
     
-
+    //Logs the noises to the output file
     public void log (AbstractEvent e) throws IOException {
         Noise n = (Noise) e;
         packer.packInt(n.r.ID);

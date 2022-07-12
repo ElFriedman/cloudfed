@@ -7,6 +7,9 @@ import java.io.IOException;
 
 import org.msgpack.core.MessagePacker;
 
+/*
+ * Create a workload with multiple streams
+ */
 public class WorkloadGenerator {
     private PriorityQueue<WorkloadStream> streamPQ;
 
@@ -18,7 +21,6 @@ public class WorkloadGenerator {
     }
 
     public void generateWorkload (MessagePacker packer, StoppingCriterion stoppingCriterion) throws IOException {
-        //BufferedWriter out = new BufferedWriter(new FileWriter(new File (fileName)));
         BigDecimal t = new BigDecimal(-1);
         int jobCount = 0;
         while (!stoppingCriterion.stop(t, jobCount)) {

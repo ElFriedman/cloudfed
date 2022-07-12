@@ -14,7 +14,6 @@ import edu.usc.qed.cloudfed.Simulate.*;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -22,8 +21,6 @@ import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.regex.Pattern;
 
-import javax.swing.JFrame;
-import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 import picocli.CommandLine;
@@ -36,14 +33,10 @@ import picocli.CommandLine.ScopeType;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessagePacker;
 import org.msgpack.core.MessageUnpacker;
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartPanel;
 import org.jfree.chart.ChartUtils;
-import org.jfree.chart.JFreeChart;
 import org.jfree.data.time.FixedMillisecond;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
-import org.jfree.data.xy.XYDataset;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -59,8 +52,8 @@ import com.esotericsoftware.yamlbeans.YamlReader;
          scope = ScopeType.INHERIT,
          subcommands = { /*Main.Seed.class,*/ Main.Workload.class, Main.Simulate.class, Main.Metrics.class })
 public class Main {
-    private final static Logger logger =  LoggerFactory.getLogger(Main.class); //what is this for
-    private static long seed = 0;
+    private final static Logger logger =  LoggerFactory.getLogger(Main.class); //currently unused
+    private static long seed = 0; //default seed
     private static RandomGeneratorFactory<RandomGenerator> RGF = RandomGeneratorFactory.of("Random");
     private static RandomGenerator rng;
     private static ArrayList<Integer[]> basics;
@@ -117,20 +110,20 @@ public class Main {
         @Override public Integer call() throws Exception {
             System.out.println("Genenerating a workload");
 
-            //setting seed
+            //setting random numbger generator seed
             if (seedString != null) {
                 seed = Long.parseLong(seedString);
                 rng = RGF.create(seed);
-            } else {
+            } else { //if no seed given, then make a random long for the seed
                 seed = Long.parseLong("" + ((int)(1000000*Math.random())));
                 rng = RGF.create(seed);
             }
 
             //stopping criteria
             StoppingCriterion stoppingCriterion = null;
-            if (Pattern.matches("Job\\[\\d+\\]", stopCritString)) { //job criterion
+            if (Pattern.matches("Job\\[\\d+\\]", stopCritString)) { //job based criterion
                 stoppingCriterion = new JobStoppingCriterion(Integer.parseInt(stopCritString.substring(4, stopCritString.length()-1)));
-            } else if (Pattern.matches("Time\\[\\d+(\\.\\d+)?\\]", stopCritString)) { //time criterion
+            } else if (Pattern.matches("Time\\[\\d+(\\.\\d+)?\\]", stopCritString)) { //time based criterion
                 stoppingCriterion = new TimeStoppingCriterion(new BigDecimal(stopCritString.substring(5, stopCritString.length()-1)));
             } else {
                 System.out.println("Invalid stopping criterion");
