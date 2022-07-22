@@ -648,11 +648,12 @@ public class Main {
 
             if (chartSettings != null) {
                 chart = new TimeSeriesChart("Rejection Rate over Time", dataset);  
+                /*
                 chart.setSize(800, 400);  
                 chart.setLocationRelativeTo(null);
                 chart.setVisible(true);  
                 chart.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-    
+                */
                 ChartUtils.saveChartAsPNG(new File("soft3d.png"), chart.chart, 1200, 900);
 
             }
