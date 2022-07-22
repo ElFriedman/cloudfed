@@ -660,8 +660,10 @@ public class Main {
         }
     }
 
-    public static boolean unitTest (Integer[] metrics1, Integer metrics2[]) {
-        return metrics1[0].equals(1056) && metrics1[1].equals(1056) && metrics1[2].equals(3212) && metrics2[0].equals(2014) && metrics2[1].equals(196) && metrics2[2].equals(0);
+    public static boolean unitTest (Integer[] metrics1, Integer [] metrics2) {
+        //System.out.println(Arrays.asList(metrics1));
+        //System.out.println(Arrays.asList(metrics2));
+        return metrics1[0].equals(1056) && metrics1[1].equals(28) && metrics1[2].equals(3212) && metrics2[0].equals(2014) && metrics2[1].equals(196) && metrics2[2].equals(0);
     }
 
     //see https://rossetti.github.io/RossettiArenaBook/ch5-BatchMeansMethod.html#ref-kelton2004simulation
