@@ -20,6 +20,7 @@ public abstract class ServerPool {
     public Listener listener;
 
     //basic testing - sanity check
+    public int arrivals;
     public int completed;
     public int overflow;
     public int rejected;
@@ -38,6 +39,7 @@ public abstract class ServerPool {
         this.ID = ID;
         this.label = label;
         listener = new Listener();
+        arrivals = 0;
         completed = 0;
         overflow = 0;
         rejected = 0;
@@ -46,6 +48,7 @@ public abstract class ServerPool {
     //Insert a request into the queue
     //For different queueing policies, simply add another insert method
     public void insert (AbstractSimulator simulator, Request r) throws Exception {
+        arrivals++;
         if (!freeServers.isEmpty()) { //if there is an available server, serve the fastest one
             freeServers.poll().insert(simulator, r); 
         } else {
@@ -61,8 +64,8 @@ public abstract class ServerPool {
     }
 
     //Calculate capacity based on sum of estimated job sizes in queue
-    public boolean underCapacity (AbstractSimulator simulator, Request r) {        
-        return queueNetMJS/netWorkRate <= ((CloudSimulator) simulator).streamToQoS.get(r.streamLabel);
+    public boolean underCapacity (AbstractSimulator simulator, Request r) {
+        return queueNetMJS/netWorkRate < ((CloudSimulator) simulator).streamToQoS.get(r.streamLabel);
     }
 
     //reject is implemented by Cloud and Federation

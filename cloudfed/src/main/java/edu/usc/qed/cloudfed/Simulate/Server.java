@@ -16,7 +16,7 @@ public class Server extends Event {
 
     //finish task
     public void execute (AbstractSimulator simulator) throws Exception {
-        Departure x = new Departure(r, ((Simulator)simulator).now(), pool, this);
+        Departure x = new Departure(r, ((Simulator)simulator).now(), pool);
         x.execute(simulator);
 
         pool.completed++;

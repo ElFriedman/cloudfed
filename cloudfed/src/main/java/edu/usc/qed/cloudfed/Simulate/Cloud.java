@@ -16,7 +16,7 @@ public class Cloud extends ServerPool {
     public void reject (AbstractSimulator simulator, Request r) throws Exception {
         overflow++;
         ((CloudSimulator)simulator).federation.insert(simulator, r);
-        Rejection x = new Rejection(r, ((Simulator)simulator).now(), this);
+        Overflow x = new Overflow(r, ((Simulator)simulator).now(), this);
         x.execute(simulator);
     }
 }

@@ -53,7 +53,14 @@ public class CloudSimulator extends Simulator {
         }
     }
     
-    //Logs the noises to the output file
+    /**
+     * Logs the noises to the output file
+     * Format:
+     * requestID (int)
+     * poolID (int)
+     * time (String/BigDecimal)
+     * Type (String)
+     */
     public void log (AbstractEvent e) throws IOException {
         Noise n = (Noise) e;
         packer.packInt(n.r.ID);
@@ -63,18 +70,20 @@ public class CloudSimulator extends Simulator {
         packer.packString(t.name());
         switch (t) {
             case ARR:
-                packer.packDouble(n.r.jobSize);
-                packer.packString(n.r.streamLabel);
+                //packer.packDouble(n.r.jobSize);
+                //packer.packString(n.r.streamLabel);
                 break;
             case DEP:
-            packer.packInt(((Departure)n).server.ID);
+                //packer.packInt(((Departure)n).server.ID);
                 break;
             case REJ:
                 break;
             case ENQ:
                 break;
             case SER:
-                packer.packInt(((Servicing)n).server.ID);
+                //packer.packInt(((Servicing)n).server.ID);
+                break;
+            case OVR:
                 break;
         }
     }

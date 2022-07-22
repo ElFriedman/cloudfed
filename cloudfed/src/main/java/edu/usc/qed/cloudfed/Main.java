@@ -14,6 +14,7 @@ import edu.usc.qed.cloudfed.Simulate.*;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -427,24 +428,28 @@ public class Main {
             //basics
             basics = new ArrayList<Integer[]>();
             for (Cloud cloud : clouds) {
-                Integer[] arr = new Integer[3];
-                arr[0] = cloud.overflow;
-                arr[1] = cloud.rejected;
-                arr[2] = cloud.completed;
+                Integer[] arr = new Integer[4];
+                if (cloud.overflow + cloud.completed != cloud.arrivals){ 
+                    throw new Exception ("cloud.overflow + cloud.completed != cloud.arrivals for cloud "+ basics.size());
+                }
+                arr[0] = cloud.arrivals;
+                arr[1] = cloud.overflow;
+                arr[2] = cloud.rejected;
+                arr[3] = cloud.completed; //locally
                 basics.add(arr);
-                //System.out.println(Arrays.toString(arr));
             }
 
             //listeners
             listeners = new ArrayList<Integer[]>();
             for (Cloud cloud : clouds) {
                 Listener l = cloud.listener;
-                Integer[] arr = new Integer[3];
-                arr[0] = l.overflow;
-                arr[1] = l.arrivals - l.departures;
-                arr[2] = l.arrivals - l.overflow;
+                Integer[] arr = new Integer[4];
+                arr[0] = l.arrivals;
+                arr[1] = l.overflow;
+                arr[2] = l.rejections;
+                arr[3] = l.departures; //locally
                 listeners.add(arr);
-                //System.out.println(Arrays.toString(arr));
+                //System.out.println(Arrays.asList(arr));
             }
 
             for (int i = 0; i < basics.size(); i++) {
@@ -454,10 +459,11 @@ public class Main {
                     if (!arrB[k].equals(arrL[k])) {
                         System.out.println(arrB[k] + " (basics) not equals " + arrL[k] + " (listeners)");
                         throw new Exception("Basics not equal to listener for cloud " + i + " at position " + k); 
+                        //0 arrival. 1 overflow. 2 rejected. 3 departure (locally)
                     }
                 }
             }
-
+            System.out.println("Finished simulating");
             return 0;
         }
     }
@@ -467,9 +473,11 @@ public class Main {
         @ParentCommand private Main parent;
 
         @Parameters (index = "0") private String inputFileName;
+        @Parameters (index = "1") private int steadyState;
         @Option(names = {"-U", "--unitTest"}) private boolean unitTest;
         @Option(names = {"-E", "--endToEnd"}) private boolean endToEnd;
-        @Option(names = {"-C", "--chart"}) private boolean chartBool;
+        @Option(names = {"-C", "--chart"}) private String chartSettings;
+
 
         @Override public Integer call() throws Exception {
             System.out.println("Computing metrics");
@@ -498,119 +506,133 @@ public class Main {
             }
             int[] departures = new int [c]; //total completed
             int[] overflow = new int [c]; //overflow
+            int[] rejections = new int[c]; 
             int[] arrivals = new int [c];
-            //hence rejected = A-D, completed locally = A-R, and fed completed = D-R
+            int[] localDepartures = new int [c];
+            int[] fedDeparturesCloud = new int [c];
             int fedArrivals = 0;
             int fedDepartures = 0;
             int fedRejections = 0;
             HashMap<Integer, Integer> requestToCloud = new HashMap<Integer, Integer> ();
-
+            int xzoom = 595;
             TimeSeriesCollection dataset = new TimeSeriesCollection();  
             TimeSeries net = new TimeSeries("net");  
             int totalDepartures = 0;
-            TimeSeries lastX = new TimeSeries("last 100000");
-            int x = 100000;
+
+            int x = 20000; // last X for cumulative
+            int y = 5000; //interval for adding data to chart
+            if (chartSettings != null) {
+                int colon = chartSettings.indexOf(":");
+                x = Integer.parseInt(chartSettings.substring(0, colon));
+                y = Integer.parseInt(chartSettings.substring(colon+1));
+            }
+
+            TimeSeries lastX = new TimeSeries("last " + x);
             int currSum = 0;
             Queue<Integer> toRemove = new LinkedList<Integer>();
-
+            int ybar;
             while (unpacker.hasNext()) {
                 int requestID = unpacker.unpackInt();
                 int poolID = unpacker.unpackInt();
                 String time = unpacker.unpackString();
                 Noise.Type type = Noise.Type.valueOf(unpacker.unpackString());
-                int serverID;
-                switch (type) {
-                    case ARR:
-                        if (poolID == -1) {
-                            fedArrivals++;
-                        } else {
-                            arrivals[poolID]+=1;
-                        }
-                        requestToCloud.put(requestID, poolID);
-                        double jobSize = unpacker.unpackDouble();
-                        String streamLabel = unpacker.unpackString();
-                        break;
-                    case DEP:
-                        serverID = unpacker.unpackInt();
-                        if (poolID == -1) {
-                            fedDepartures++;
-                            departures[requestToCloud.get(requestID)]++;
-                        } else {
-                            departures[poolID]+=1;
-                        }
-                        totalDepartures += 1;
-                        if (totalDepartures%1000 == 0) {
-                            net.add(new FixedMillisecond(totalDepartures + fedRejections), fedRejections/(double)totalDepartures);
-                        }
-                        currSum += 0;
-                        toRemove.add(0);
-                        if (toRemove.size() > x) {
-                            currSum -= toRemove.poll();
-                        }
-                        if (totalDepartures%1000 == 0) {
-                            lastX.add(new FixedMillisecond(totalDepartures + fedRejections), currSum/(double)toRemove.size());
-                        }
-                        break;
-                    case REJ:
-                        if (poolID == -1) {
+                if (requestID >= steadyState) {
+                    switch (type) {
+                        case ARR: 
+                            //double jobSize = unpacker.unpackDouble();
+                            //String streamLabel = unpacker.unpackString();
+                            if (poolID != -1) {
+                                requestToCloud.put(requestID, poolID);
+                            } else {
+                                throw new Exception ("Arrival is not thrown by arrival to the federation");
+                            }
+                            arrivals[poolID]++;
+                            break;
+                        case DEP:
+                            //int serverID = unpacker.unpackInt();
+                            if (poolID == -1) {
+                                fedDepartures++;
+                                fedDeparturesCloud[requestToCloud.get(requestID)]++;
+                                departures[requestToCloud.get(requestID)]++;
+                            } else {
+                                localDepartures[poolID]+=1;
+                                departures[poolID]+=1;
+                            }
+                            totalDepartures += 1;
+                            if (chartSettings != null) {
+                                currSum += 0;
+                                toRemove.add(0);
+                                if (toRemove.size() > x) {
+                                    currSum -= toRemove.poll();
+                                }
+                                if ((totalDepartures+fedRejections)%y == 0) {
+                                    //System.out.println(totalDepartures + fedRejections);
+                                    net.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), fedRejections/(double)(totalDepartures+fedRejections));
+                                    lastX.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), currSum/(double)toRemove.size());
+                                }
+                            }
+                            break;
+                        case REJ:
                             fedRejections++;
-
-                            if (totalDepartures%100 == 0) {
-                                net.add(new FixedMillisecond(totalDepartures + fedRejections), fedRejections/(double)totalDepartures);
+                            rejections[requestToCloud.get(requestID)]++;
+                            if (chartSettings != null) {
+                                currSum += 1;
+                                toRemove.add(1);
+                                if (toRemove.size() > x) {
+                                    currSum -= toRemove.poll();
+                                }
+                                if ((fedRejections+totalDepartures)%y == 0) {
+                                    //System.out.println(totalDepartures + fedRejections);
+                                    net.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), fedRejections/(double)(totalDepartures+fedRejections));
+                                    lastX.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), currSum/(double)toRemove.size());
+                                }
                             }
-                            currSum += 1;
-                            toRemove.add(1);
-                            if (toRemove.size() > x) {
-                                currSum -= toRemove.poll();
-                            }
-                            if (totalDepartures%1000 == 0) {
-                                lastX.add(new FixedMillisecond(totalDepartures + fedRejections), currSum/(double)toRemove.size());
-                            }
-                        } else {
-                            overflow[poolID]+=1;
-                        }
-                        break;
-                    case ENQ:
-                        break;
-                    case SER:
-                        serverID = unpacker.unpackInt();
-                        break;
+                            break;
+                        case ENQ:
+                            break;
+                        case SER:
+                            //int serverID = unpacker.unpackInt();
+                            break;
+                        case OVR: 
+                            overflow[poolID]++;
+                            fedArrivals++;
+                            break;
+                    }
                 }
             }
-
             dataset.addSeries(net);
             dataset.addSeries(lastX);
-
             int completed = 0;
             metrics = new ArrayList<Integer[]>();
             for (int i = 0; i < c; i++) {
+                if (arrivals[i] != departures[i] + rejections[i]) {
+                    throw new Exception ("Arrivals != departures + rejections for cloud " + i);
+                }
+                if (arrivals[i] != localDepartures[i] + overflow[i]) {
+                    throw new Exception ("Arrivals != local departures + overflow for cloud " + i);
+                }
+                if (departures[i] != localDepartures[i] + fedDeparturesCloud[i]) {
+                    throw new Exception ("Departures != local departures + fed departures for cloud " + i);
+                }
                 System.out.println("cloud"+i);
-                System.out.println("\tOverflow:" + overflow[i]);
-                System.out.println("\tRejected:" + (arrivals[i]-departures[i]));
-                System.out.println("\tCompleted locally:" + (arrivals[i]-overflow[i]));
-                completed += arrivals[i]-overflow[i];
-
+                System.out.println("\tArrivals:" + arrivals[i]);
+                System.out.println("\tOverflow:" + overflow[i] + " - Rate: " + overflow[i]/(double)arrivals[i]);
+                System.out.println("\tRejected:" + (rejections[i]) + " - Rate: " + (rejections[i])/(double)arrivals[i]);
+                System.out.println("\tCompleted locally:" + (localDepartures[i])  + " - Rate: " + (localDepartures[i])/(double)arrivals[i]);
+                completed += localDepartures[i];
                 Integer[] arr = new Integer[3];
                 arr[0] = overflow[i];
-                arr[1] = arrivals[i] - departures[i];
-                arr[2] = arrivals[i] - overflow[i];
+                arr[1] = rejections[i];
+                arr[2] = localDepartures[i];
                 metrics.add(arr);
             }
             completed += fedDepartures;
+            if (fedRejections + fedDepartures != fedArrivals) {
+                throw new Exception ("Fed rejections + fed departures != fed arrivals");
+            }
             System.out.println("Completed by federation:" + fedDepartures);
             System.out.println("Rejected by federation:" + fedRejections);
             System.out.println("Net rejection rate:" + (fedRejections/(double)(completed+fedRejections)));
-
-            /*for (int i = 0; i < basics.size(); i++) {
-                Integer[] arrB = basics.get(i);
-                Integer[] arrM = metrics.get(i);
-                for (int k = 0; k < 3; k++) {
-                    if (arrB[k] != arrM[k]) {
-                        throw new Exception("Basics not equal to metrics for cloud " + i + " at position " + k); 
-                    }
-                }
-            }*/
-
 
             if (unitTest) {
                 if (!unitTest(metrics.get(0), metrics.get(1))) {
@@ -624,7 +646,7 @@ public class Main {
                 System.out.println("E2E");
             }
 
-            if (chartBool) {
+            if (chartSettings != null) {
                 chart = new TimeSeriesChart("Rejection Rate over Time", dataset);  
                 chart.setSize(800, 400);  
                 chart.setLocationRelativeTo(null);
@@ -639,8 +661,27 @@ public class Main {
     }
 
     public static boolean unitTest (Integer[] metrics1, Integer metrics2[]) {
-        return metrics1[0].equals(1054) && metrics1[1].equals(32) && metrics1[2].equals(3214) && metrics2[0].equals(2014) && metrics2[1].equals(189) && metrics2[2].equals(0);
+        return metrics1[0].equals(1056) && metrics1[1].equals(1056) && metrics1[2].equals(3212) && metrics2[0].equals(2014) && metrics2[1].equals(196) && metrics2[2].equals(0);
     }
+
+    //see https://rossetti.github.io/RossettiArenaBook/ch5-BatchMeansMethod.html#ref-kelton2004simulation
+    public static double lag1Correlation (int k, double yBar, ArrayList<Double> yList) {
+        double t1 = Math.sqrt((k*k-1)/(double)(k-2)); //term 1
+        double pNum = 0;//numerator
+        for (int j = 1; j <= k-1; j++) {
+            pNum += (yList.get(j)-yBar) * (yList.get(j+1)-yBar);
+        }
+        double pDen = 0;//denominator
+        for (int j = 1; j <= k; j++) {
+            pDen += Math.pow(yList.get(j)-yBar, 2);
+        }
+        double p1 = pNum/pDen;
+        double fracNum = Math.pow(yList.get(1)-yBar, 2) + Math.pow(yList.get(k)-yBar, 2);
+        double fracDen = 2 * pDen;
+        double frac = fracNum/fracDen;
+        double t2 = p1 + frac; //term 2
+        return t1 * t2;
+    } 
 
     public static void main(String[] args) {
         CommandLine cmd = new CommandLine(new Main());
