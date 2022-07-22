@@ -477,6 +477,7 @@ public class Main {
         @Option(names = {"-U", "--unitTest"}) private boolean unitTest;
         @Option(names = {"-E", "--endToEnd"}) private boolean endToEnd;
         @Option(names = {"-C", "--chart"}) private String chartSettings;
+        @Option(names = {"-B", "--batching"}) private int batching;
 
 
         @Override public Integer call() throws Exception {
@@ -531,6 +532,10 @@ public class Main {
             int currSum = 0;
             Queue<Integer> toRemove = new LinkedList<Integer>();
             int ybar;
+
+            ArrayList<Double> batchList = new ArrayList<Double>();
+            int currBatchSum = 0;
+            int currBatchCount = 0;
             while (unpacker.hasNext()) {
                 int requestID = unpacker.unpackInt();
                 int poolID = unpacker.unpackInt();
@@ -571,6 +576,14 @@ public class Main {
                                     lastX.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), currSum/(double)toRemove.size());
                                 }
                             }
+                            if (batching != 0) {
+                                currBatchCount += 1;
+                                if (currBatchCount >= batching) {
+                                    batchList.add(currBatchSum/(double)currBatchCount);
+                                    currBatchCount = 0;
+                                    currBatchSum = 0;
+                                }
+                            }
                             break;
                         case REJ:
                             fedRejections++;
@@ -585,6 +598,15 @@ public class Main {
                                     //System.out.println(totalDepartures + fedRejections);
                                     net.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), fedRejections/(double)(totalDepartures+fedRejections));
                                     lastX.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), currSum/(double)toRemove.size());
+                                }
+                            }
+                            if (batching != 0) {
+                                currBatchCount += 1;
+                                currBatchSum += 1;
+                                if (currBatchCount >= batching) {
+                                    batchList.add(currBatchSum/(double)currBatchCount);
+                                    currBatchCount = 0;
+                                    currBatchSum = 0;
                                 }
                             }
                             break;
@@ -657,6 +679,12 @@ public class Main {
                 ChartUtils.saveChartAsPNG(new File("soft3d.png"), chart.chart, 1200, 900);
 
             }
+
+            if (batching != 0) {
+                System.out.println(batchList.size() + " batches");
+                double corr = correlation(batchList.size(), fedRejections/(double)(completed+fedRejections), batchList);
+                System.out.println("Correlation: " + corr);
+            }
             return 0;
         }
     }
@@ -668,18 +696,19 @@ public class Main {
     }
 
     //see https://rossetti.github.io/RossettiArenaBook/ch5-BatchMeansMethod.html#ref-kelton2004simulation
-    public static double lag1Correlation (int k, double yBar, ArrayList<Double> yList) {
+    //lag 1 correlation
+    public static double correlation (int k, double yBar, ArrayList<Double> yList) {
         double t1 = Math.sqrt((k*k-1)/(double)(k-2)); //term 1
         double pNum = 0;//numerator
-        for (int j = 1; j <= k-1; j++) {
+        for (int j = 0; j < k-1; j++) {
             pNum += (yList.get(j)-yBar) * (yList.get(j+1)-yBar);
         }
         double pDen = 0;//denominator
-        for (int j = 1; j <= k; j++) {
+        for (int j = 0; j < k; j++) {
             pDen += Math.pow(yList.get(j)-yBar, 2);
         }
         double p1 = pNum/pDen;
-        double fracNum = Math.pow(yList.get(1)-yBar, 2) + Math.pow(yList.get(k)-yBar, 2);
+        double fracNum = Math.pow(yList.get(0)-yBar, 2) + Math.pow(yList.get(k-1)-yBar, 2);
         double fracDen = 2 * pDen;
         double frac = fracNum/fracDen;
         double t2 = p1 + frac; //term 2

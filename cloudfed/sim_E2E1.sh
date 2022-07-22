@@ -5,4 +5,4 @@ java -jar target/cloudfed.jar workload info target/workload.msgpack -A
 
 java -jar target/cloudfed.jar simulate sim_E2E1.yaml output_E2E1.txt
 
-java -jar target/cloudfed.jar metrics output_E2E1.txt 100000 -C "20000:5000"
+java -jar target/cloudfed.jar metrics output_E2E1.txt 100000
