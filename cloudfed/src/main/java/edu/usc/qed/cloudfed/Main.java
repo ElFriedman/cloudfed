@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import edu.usc.qed.cloudfed.Workload.*;
 import edu.usc.qed.cloudfed.Simulate.*;
 
-
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
@@ -152,6 +151,8 @@ public class Main {
                 String APString = s.substring(0, colon1);
                 if(Pattern.matches("Exp\\[\\d+(\\.\\d+)?\\]", APString)) { //Poisson
                     arrivalProcess = new PoissonArrivalProcess(rng, Double.parseDouble(APString.substring(4, colon1 - 1)));
+                } else if(Pattern.matches("Reg\\[\\d+(\\.\\d+)?\\]", APString)) { //Periodic
+                    arrivalProcess = new PeriodicArrivalProcess(Double.parseDouble(APString.substring(4, colon1 - 1)));
                 } else {
                     System.out.println("Invalid arrival process distribution");
                 }
@@ -161,7 +162,7 @@ public class Main {
                 String s2 = s.substring(colon1 + 1);
                 int colon2 = s2.indexOf("]") + 1;
                 String BSString = s2.substring(0, colon2);
-                if (Pattern.matches("Det\\[\\d+\\]", BSString)) { //Determined
+                if (Pattern.matches("Det\\[\\d+\\]", BSString)) { //Deterministic
                     batchSizer = new DetBatchSizer(Integer.parseInt(BSString.substring(4, colon2 - 1)));
                 } else if (Pattern.matches("Dist\\[0\\.\\d+:\\d+(\\.\\d+)?(,0\\.\\d+:\\d+(\\.\\d+)?)*\\]", BSString)) { //Distributed
                     int entries = 1 + (int) (BSString.chars().filter(ch -> ch == ',').count());
@@ -185,10 +186,16 @@ public class Main {
                 //JobGenerator
                 JobGenerator jobGenerator = null;
                 String s3 = s2.substring(colon2 + 1);
-                if (Pattern.matches("Unif\\[\\d+,\\d+\\]", s3)) { //Uniform
+                if (Pattern.matches("Unif\\[\\d+(\\.\\d+)?,\\d+(\\.\\d+)?\\]", s3)) { //Uniform
                     jobGenerator = new UniformJobGenerator(rng, Double.parseDouble(s3.substring(5, s3.indexOf(","))), 
                     Double.parseDouble(s3.substring(s3.indexOf(",") + 1, s3.length() - 1)));
-                } else {
+                } else if (Pattern.matches("Par\\[\\d+(\\.\\d+)?,\\d+(\\.\\d+)?\\]", s3)) { //Pareto
+                    jobGenerator = new ParetoJobGenerator(rng, Double.parseDouble(s3.substring(4, s3.indexOf(","))),
+                    Double.parseDouble(s3.substring(s3.indexOf(",") + 1, s3.length() - 1)));
+                } else if (Pattern.matches("Exp\\[\\d+(\\.\\d+)?\\]", s3)) { //Exponential
+                    jobGenerator = new ExponentialJobGenerator(rng, Double.parseDouble(s3.substring(4, s3.length()-1)));
+                }
+                else {
                     System.out.println("Invalid job generator distribution");
                 }
 
@@ -515,9 +522,10 @@ public class Main {
             int fedDepartures = 0;
             int fedRejections = 0;
             HashMap<Integer, Integer> requestToCloud = new HashMap<Integer, Integer> ();
-            int xzoom = 595;
+            int xzoom = 1;
             TimeSeriesCollection dataset = new TimeSeriesCollection();  
-            TimeSeries net = new TimeSeries("net");  
+            TimeSeries netRej = new TimeSeries("Net Rejection Rate");  
+            TimeSeries netFor = new TimeSeries("Net Forwarding Rate");  
             int totalDepartures = 0;
 
             int x = 20000; // last X for cumulative
@@ -528,13 +536,15 @@ public class Main {
                 y = Integer.parseInt(chartSettings.substring(colon+1));
             }
 
-            TimeSeries lastX = new TimeSeries("last " + x);
+            TimeSeries lastRej = new TimeSeries("Last " + x + " Rejection Rate");
+            TimeSeries lastFor = new TimeSeries("Last " + x + " Forwarding Rate");
             int currSum = 0;
             Queue<Integer> toRemove = new LinkedList<Integer>();
-            int ybar;
 
-            ArrayList<Double> batchList = new ArrayList<Double>();
-            int currBatchSum = 0;
+            ArrayList<Double> batchListRej = new ArrayList<Double>();
+            ArrayList<Double> batchListFor = new ArrayList<Double>();
+            int currBatchSumRej = 0;
+            int currBatchSumFor = 0;
             int currBatchCount = 0;
             while (unpacker.hasNext()) {
                 int requestID = unpacker.unpackInt();
@@ -552,6 +562,16 @@ public class Main {
                                 throw new Exception ("Arrival is not thrown by arrival to the federation");
                             }
                             arrivals[poolID]++;
+                            if (batching != 0) {
+                                currBatchCount += 1;
+                                if (currBatchCount >= batching) {
+                                    batchListRej.add(currBatchSumRej/(double)currBatchCount);
+                                    batchListFor.add(currBatchSumFor/(double)currBatchCount);
+                                    currBatchCount = 0;
+                                    currBatchSumRej = 0;
+                                    currBatchSumFor = 0;
+                                }
+                            }
                             break;
                         case DEP:
                             //int serverID = unpacker.unpackInt();
@@ -572,16 +592,8 @@ public class Main {
                                 }
                                 if ((totalDepartures+fedRejections)%y == 0) {
                                     //System.out.println(totalDepartures + fedRejections);
-                                    net.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), fedRejections/(double)(totalDepartures+fedRejections));
-                                    lastX.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), currSum/(double)toRemove.size());
-                                }
-                            }
-                            if (batching != 0) {
-                                currBatchCount += 1;
-                                if (currBatchCount >= batching) {
-                                    batchList.add(currBatchSum/(double)currBatchCount);
-                                    currBatchCount = 0;
-                                    currBatchSum = 0;
+                                    netRej.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), fedRejections/(double)(totalDepartures+fedRejections));
+                                    lastRej.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), currSum/(double)toRemove.size());
                                 }
                             }
                             break;
@@ -596,18 +608,13 @@ public class Main {
                                 }
                                 if ((fedRejections+totalDepartures)%y == 0) {
                                     //System.out.println(totalDepartures + fedRejections);
-                                    net.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), fedRejections/(double)(totalDepartures+fedRejections));
-                                    lastX.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), currSum/(double)toRemove.size());
+                                    netRej.add();
+                                    netRej.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), fedRejections/(double)(totalDepartures+fedRejections));
+                                    lastRej.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), currSum/(double)toRemove.size());
                                 }
                             }
                             if (batching != 0) {
-                                currBatchCount += 1;
-                                currBatchSum += 1;
-                                if (currBatchCount >= batching) {
-                                    batchList.add(currBatchSum/(double)currBatchCount);
-                                    currBatchCount = 0;
-                                    currBatchSum = 0;
-                                }
+                                currBatchSumRej += 1;
                             }
                             break;
                         case ENQ:
@@ -618,12 +625,15 @@ public class Main {
                         case OVR: 
                             overflow[poolID]++;
                             fedArrivals++;
+                            if (batching != 0) {
+                                currBatchSumFor += 1;
+                            }
                             break;
                     }
                 }
             }
-            dataset.addSeries(net);
-            dataset.addSeries(lastX);
+            dataset.addSeries(netRej);
+            dataset.addSeries(lastRej);
             int completed = 0;
             metrics = new ArrayList<Integer[]>();
             for (int i = 0; i < c; i++) {
@@ -681,9 +691,36 @@ public class Main {
             }
 
             if (batching != 0) {
-                System.out.println(batchList.size() + " batches");
-                double corr = correlation(batchList.size(), fedRejections/(double)(completed+fedRejections), batchList);
-                System.out.println("Correlation: " + corr);
+                int k = batchListRej.size();
+                System.out.println(k + " batches");
+                double rejBar = 0;
+                double forBar = 0;
+                for (int i = 0; i < k; i++) {
+                    rejBar += batchListRej.get(i);
+                    forBar += batchListFor.get(i);
+                }
+                rejBar /= k;
+                forBar /= k;
+                double rejCorr = correlation(k, rejBar, batchListRej);
+                double forCorr = correlation(k, forBar, batchListFor);
+                double rejVar = 0;
+                double forVar = 0;
+                for (int i = 0; i < k; i++){
+                    rejVar += Math.pow(rejBar-batchListRej.get(i), 2);
+                    forVar += Math.pow(forBar-batchListFor.get(i), 2);
+                }
+                rejVar /= (k-1);
+                forVar /= (k-1);
+                double rejSTDEV = Math.sqrt(rejVar);
+                double rejHalfWidth = 1.96 * rejSTDEV/Math.sqrt((double)k);
+                double forSTDEV = Math.sqrt(forVar);
+                double forHalfWidth = 1.96 * forSTDEV/Math.sqrt((double)k);
+                System.out.println("Rejection correlation: " + rejCorr);
+                System.out.println("Rejection rate lower bound: " + (rejBar - rejHalfWidth));
+                System.out.println("Rejection rate upper bound: " + (rejBar + rejHalfWidth));
+                System.out.println("Forwarding correlation: " + forCorr);
+                System.out.println("Forwarding rate lower bound: " + (forBar - forHalfWidth));
+                System.out.println("Forwarding rate upper bound: " + (forBar + forHalfWidth));
             }
             return 0;
         }

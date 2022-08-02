@@ -1,0 +1,16 @@
+---
+ fileName: target/workload.msgpack
+---
+ streams:
+   - type1
+ serversets:
+   - count: 60
+     rate: 1.0
+     shared: 40
+---
+ streams:
+   - type2
+ serversets:
+   - count: 45
+     rate: 1.0
+     shared: 10
