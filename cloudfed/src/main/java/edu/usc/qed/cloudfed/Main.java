@@ -490,11 +490,11 @@ public class Main {
         @Override public Integer call() throws Exception {
             System.out.println("Computing metrics");
             MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(new FileInputStream(inputFileName));
-            int c = unpacker.unpackInt();
+            int c = unpacker.unpackInt(); //amount of clouds
             for (int i = 0; i < c; i++) {
                 int cloudID = unpacker.unpackInt();
                 //System.out.println("cloud"+cloudID);
-                int n = unpacker.unpackInt();
+                int n = unpacker.unpackInt(); //cloud server count
                 for (int j = 0; j < n; j++) {
                     int serverID = unpacker.unpackInt();
                     double workRate = unpacker.unpackDouble();
@@ -506,14 +506,14 @@ public class Main {
                 throw new Exception("something went big wrong bc fed ID aint -1");
             }
             //System.out.println("fed");
-            int m = unpacker.unpackInt();
+            int m = unpacker.unpackInt(); //fed server count
             for (int i = 0; i < m; i++) {
                 int serverID = unpacker.unpackInt();
                 double workRate = unpacker.unpackDouble();
                 //System.out.println("\tserver" + serverID + " - work rate: " + workRate);
             }
-            int[] departures = new int [c]; //total completed
-            int[] overflow = new int [c]; //overflow
+            int[] departures = new int [c];
+            int[] overflow = new int [c];
             int[] rejections = new int[c]; 
             int[] arrivals = new int [c];
             int[] localDepartures = new int [c];
@@ -521,31 +521,40 @@ public class Main {
             int fedArrivals = 0;
             int fedDepartures = 0;
             int fedRejections = 0;
-            HashMap<Integer, Integer> requestToCloud = new HashMap<Integer, Integer> ();
+            HashMap<Integer, Integer> requestToCloud = new HashMap<Integer, Integer>();
             int xzoom = 1;
             TimeSeriesCollection dataset = new TimeSeriesCollection();  
             TimeSeries netRej = new TimeSeries("Net Rejection Rate");  
             TimeSeries netFor = new TimeSeries("Net Forwarding Rate");  
             int totalDepartures = 0;
 
-            int x = 20000; // last X for cumulative
-            int y = 5000; //interval for adding data to chart
+            int lastX = 20000; // last X for cumulative
+            int chartInterval = 5000; //interval for adding data to chart
             if (chartSettings != null) {
                 int colon = chartSettings.indexOf(":");
-                x = Integer.parseInt(chartSettings.substring(0, colon));
-                y = Integer.parseInt(chartSettings.substring(colon+1));
+                lastX = Integer.parseInt(chartSettings.substring(0, colon));
+                chartInterval = Integer.parseInt(chartSettings.substring(colon+1));
             }
 
-            TimeSeries lastRej = new TimeSeries("Last " + x + " Rejection Rate");
-            TimeSeries lastFor = new TimeSeries("Last " + x + " Forwarding Rate");
+            TimeSeries lastRej = new TimeSeries("Last " + lastX + " Rejection Rate");
+            TimeSeries lastFor = new TimeSeries("Last " + lastX + " Forwarding Rate");
             int currSum = 0;
             Queue<Integer> toRemove = new LinkedList<Integer>();
 
             ArrayList<Double> batchListRej = new ArrayList<Double>();
             ArrayList<Double> batchListFor = new ArrayList<Double>();
-            int currBatchSumRej = 0;
-            int currBatchSumFor = 0;
-            int currBatchCount = 0;
+            int batchRej = 0;
+            int batchFor = 0;
+            int batchArr = 0;
+            int[] batchRejCloud = new int [c];
+            int[] batchForCloud = new int [c];
+            int[] batchArrCloud = new int [c];
+            ArrayList<Double>[] batchListRejCloud = (ArrayList<Double>[]) new ArrayList<?>[c];
+            ArrayList<Double>[] batchListForCloud = (ArrayList<Double>[]) new ArrayList<?>[c];
+            for (int i = 0; i < c; i++) {
+                batchListRejCloud[i] = new ArrayList<Double>();
+                batchListForCloud[i] = new ArrayList<Double>();
+            }
             while (unpacker.hasNext()) {
                 int requestID = unpacker.unpackInt();
                 int poolID = unpacker.unpackInt();
@@ -563,13 +572,21 @@ public class Main {
                             }
                             arrivals[poolID]++;
                             if (batching != 0) {
-                                currBatchCount += 1;
-                                if (currBatchCount >= batching) {
-                                    batchListRej.add(currBatchSumRej/(double)currBatchCount);
-                                    batchListFor.add(currBatchSumFor/(double)currBatchCount);
-                                    currBatchCount = 0;
-                                    currBatchSumRej = 0;
-                                    currBatchSumFor = 0;
+                                batchArr += 1;
+                                batchArrCloud[poolID] += 1;
+                                if (batchArr >= batching) {
+                                    batchListRej.add(batchRej/(double)batchArr);
+                                    batchListFor.add(batchFor/(double)batchArr);
+                                    batchArr = 0;
+                                    batchRej = 0;
+                                    batchFor = 0;
+                                }
+                                if (batchArrCloud[poolID] >= batching) {
+                                    batchListRejCloud[poolID].add(batchRejCloud[poolID]/(double)batchArrCloud[poolID]);
+                                    batchListForCloud[poolID].add(batchForCloud[poolID]/(double)batchArrCloud[poolID]);
+                                    batchArrCloud[poolID] = 0;
+                                    batchRejCloud[poolID] = 0;
+                                    batchForCloud[poolID] = 0;
                                 }
                             }
                             break;
@@ -587,10 +604,10 @@ public class Main {
                             if (chartSettings != null) {
                                 currSum += 0;
                                 toRemove.add(0);
-                                if (toRemove.size() > x) {
+                                if (toRemove.size() > lastX) {
                                     currSum -= toRemove.poll();
                                 }
-                                if ((totalDepartures+fedRejections)%y == 0) {
+                                if ((totalDepartures+fedRejections)%chartInterval == 0) {
                                     //System.out.println(totalDepartures + fedRejections);
                                     netRej.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), fedRejections/(double)(totalDepartures+fedRejections));
                                     lastRej.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), currSum/(double)toRemove.size());
@@ -603,18 +620,18 @@ public class Main {
                             if (chartSettings != null) {
                                 currSum += 1;
                                 toRemove.add(1);
-                                if (toRemove.size() > x) {
+                                if (toRemove.size() > lastX) {
                                     currSum -= toRemove.poll();
                                 }
-                                if ((fedRejections+totalDepartures)%y == 0) {
+                                if ((fedRejections+totalDepartures)%chartInterval == 0) {
                                     //System.out.println(totalDepartures + fedRejections);
-                                    netRej.add();
                                     netRej.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), fedRejections/(double)(totalDepartures+fedRejections));
                                     lastRej.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), currSum/(double)toRemove.size());
                                 }
                             }
                             if (batching != 0) {
-                                currBatchSumRej += 1;
+                                batchRej += 1;
+                                batchRejCloud[poolID] += 1;
                             }
                             break;
                         case ENQ:
@@ -626,7 +643,8 @@ public class Main {
                             overflow[poolID]++;
                             fedArrivals++;
                             if (batching != 0) {
-                                currBatchSumFor += 1;
+                                batchFor += 1;
+                                batchForCloud[poolID] += 1;
                             }
                             break;
                     }
@@ -634,6 +652,9 @@ public class Main {
             }
             dataset.addSeries(netRej);
             dataset.addSeries(lastRej);
+            //dataset.addSeries(netFor);
+            //dataset.addSeries(netRej);
+            
             int completed = 0;
             metrics = new ArrayList<Integer[]>();
             for (int i = 0; i < c; i++) {
@@ -691,36 +712,18 @@ public class Main {
             }
 
             if (batching != 0) {
-                int k = batchListRej.size();
-                System.out.println(k + " batches");
-                double rejBar = 0;
-                double forBar = 0;
-                for (int i = 0; i < k; i++) {
-                    rejBar += batchListRej.get(i);
-                    forBar += batchListFor.get(i);
+                System.out.println("Federation rejection rate");
+                printerval(batchListRej, 1.96);
+                for (int i = 0; i < c; i++) {
+                    System.out.println("Cloud " + c + " rejection rate");
+                    printerval(batchListRejCloud[i], 1.96);
                 }
-                rejBar /= k;
-                forBar /= k;
-                double rejCorr = correlation(k, rejBar, batchListRej);
-                double forCorr = correlation(k, forBar, batchListFor);
-                double rejVar = 0;
-                double forVar = 0;
-                for (int i = 0; i < k; i++){
-                    rejVar += Math.pow(rejBar-batchListRej.get(i), 2);
-                    forVar += Math.pow(forBar-batchListFor.get(i), 2);
+                System.out.println("Federation forwarding rate");
+                printerval(batchListFor, 1.96);
+                for (int i = 0; i < c; i++) {
+                    System.out.println("Cloud " + c + " forwarding rate");
+                    printerval(batchListForCloud[i], 1.96);
                 }
-                rejVar /= (k-1);
-                forVar /= (k-1);
-                double rejSTDEV = Math.sqrt(rejVar);
-                double rejHalfWidth = 1.96 * rejSTDEV/Math.sqrt((double)k);
-                double forSTDEV = Math.sqrt(forVar);
-                double forHalfWidth = 1.96 * forSTDEV/Math.sqrt((double)k);
-                System.out.println("Rejection correlation: " + rejCorr);
-                System.out.println("Rejection rate lower bound: " + (rejBar - rejHalfWidth));
-                System.out.println("Rejection rate upper bound: " + (rejBar + rejHalfWidth));
-                System.out.println("Forwarding correlation: " + forCorr);
-                System.out.println("Forwarding rate lower bound: " + (forBar - forHalfWidth));
-                System.out.println("Forwarding rate upper bound: " + (forBar + forHalfWidth));
             }
             return 0;
         }
@@ -752,6 +755,29 @@ public class Main {
         return t1 * t2;
     } 
 
+    public static void printerval (ArrayList<Double> batchList, double tStat) {
+        int k = batchList.size();
+        double yBar = 0;
+        for (int i = 0; i < k; i++) {
+            yBar += batchList.get(i);
+        }
+        yBar /= k;
+        double corr = correlation(k, yBar, batchList);
+        double var = 0;
+        for (int i = 0; i < k; i++){
+            var += Math.pow(yBar-batchList.get(i), 2);
+        }
+        var /= (k-1);
+        double stdev = Math.sqrt(var);
+        double halfWidth = tStat * stdev/Math.sqrt((double)k);
+        System.out.println(k + " batches");
+        System.out.println("Correlation: " + corr);
+        System.out.println("Mean: " + yBar);
+        System.out.println("Halfwidth: " + halfWidth);
+        System.out.println("Lower bound: " + (yBar - halfWidth));
+        System.out.println("Upper bound: " + (yBar + halfWidth));
+        System.out.println("---------------");
+    }
     public static void main(String[] args) {
         CommandLine cmd = new CommandLine(new Main());
         int exitCode = cmd.execute(args);
