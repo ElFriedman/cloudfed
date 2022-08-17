@@ -37,11 +37,13 @@ import org.jfree.chart.ChartUtils;
 import org.jfree.data.time.FixedMillisecond;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
+import com.opencsv.CSVWriter;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 
 import org.apache.commons.math3.stat.inference.TTest;
@@ -780,6 +782,7 @@ public class Main {
         var /= (k-1);
         double stdev = Math.sqrt(var);
         double halfWidth = tStat * stdev/Math.sqrt((double)k);
+        System.out.println("---------------");
         System.out.println(k + " batches");
         System.out.println("Correlation: " + corr);
         System.out.println("Mean: " + yBar);
@@ -821,6 +824,10 @@ public class Main {
             int batching = batchSize;
             double tStat = 1.96; //DO THIS DO THIS
             ArrayList<Double> metricArray = null;
+            ArrayList<Double> batchListRej = null;
+            ArrayList<Double> batchListFor = null;
+            ArrayList<Double>[] batchListRejCloud = null;
+            ArrayList<Double>[] batchListForCloud = null;
             String workloadFileName = "target/workload" + runID + ".txt";
             String outputFileName = "target/output" + runID + ".txt";
 
@@ -831,6 +838,8 @@ public class Main {
             HashMap<String, Double> streamToMJS = new HashMap<String, Double>();
             HashMap<String, Double> streamToQoS = new HashMap<String, Double>();
 
+            ArrayList<String> lamb = new ArrayList<String>();
+            ArrayList<String> Q = new ArrayList<String>();
             String[] streamStrings = workloadString.split("\\|");
             for (String s : streamStrings) {
                 //streamLabel
@@ -843,6 +852,7 @@ public class Main {
                 //QoS
                 int colon00 = s.indexOf(":");
                 double QoS = Double.parseDouble(s.substring(0, colon00));
+                Q.add(s.substring(0, colon00));
                 s = s.substring(colon00 + 1);
 
                 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -858,6 +868,7 @@ public class Main {
                 } else {
                     System.out.println("Invalid arrival process distribution");
                 }
+                lamb.add(APString.substring(4, colon1 - 1));
                 
                 //------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -918,6 +929,8 @@ public class Main {
             HashMap<String, Cloud> streamToCloud = new HashMap<String, Cloud>();
             ArrayList<Cloud> clouds = new ArrayList<Cloud>();
             int j = 0;
+            ArrayList<String> x = new ArrayList<String>();
+            ArrayList<String> n = new ArrayList<String>();
             String[] cloudStrings = simulateString.split("\\|");
             for (String cloudString : cloudStrings) {
                 String streamsString = cloudString.substring(0, cloudString.indexOf("!"));
@@ -926,11 +939,13 @@ public class Main {
                 for (String serverString : serverStrings) {
                     int colon0 = serverString.indexOf(":");
                     int count = Integer.parseInt(serverString.substring(0, colon0));
+                    n.add(serverString.substring(0, colon0));
                     serverString = serverString.substring(colon0+1);
                     int colon1 = serverString.indexOf(":");
                     double rate = Double.parseDouble(serverString.substring(0, colon1));
                     serverString = serverString.substring(colon1+1);
                     int shared = Integer.parseInt(serverString);
+                    x.add(serverString);
                     int local = count - shared;
                     for (int i = 0 ; i < local; i++) {
                         serverPool.add(new Server(rate, j));
@@ -952,53 +967,46 @@ public class Main {
             CloudSimulator cloudSim = new CloudSimulator(federation, clouds, streamToCloud, streamToQoS, streamToMJS);
             MessagePacker workloadPacker;
             MessageUnpacker workloadUnpacker;
-            MessagePacker outputPacker;
+            MessagePacker outputPacker = MessagePack.newDefaultPacker(new FileOutputStream(outputFileName));
             MessageUnpacker outputUnpacker;
 
             while (!exit) {
 
-                System.out.println("Genenerating workload");
+                //System.out.println("Genenerating workload");
                 workloadPacker = MessagePack.newDefaultPacker(new FileOutputStream(workloadFileName));
                 generator.generateWorkload(workloadPacker, new JobStoppingCriterion(checkingInterval + cutoffPrime));
                 workloadPacker.close();
-                System.out.println("Workload generated");
+                //System.out.println("Workload generated");
 
                 //------------------------------------------------------------------------------------------------------------------------------------------
                 //------------------------------------------------------------------------------------------------------------------------------------------
 
-                System.out.println("Simulating");
+                //System.out.println("Simulating");
                 workloadUnpacker = MessagePack.newDefaultUnpacker(new FileInputStream(workloadFileName));
                 outputPacker = MessagePack.newDefaultPacker(new FileOutputStream(outputFileName, true));
                 cloudSim.initiateSimulation(outputPacker, workloadUnpacker);
                 cloudSim.doAllEvents2();
                 workloadUnpacker.close();
                 outputPacker.close();
-                System.out.println("Finished simulating");
+                //System.out.println("Finished simulating");
 
                 //------------------------------------------------------------------------------------------------------------------------------------------
                 //------------------------------------------------------------------------------------------------------------------------------------------
 
-                System.out.println("Computing metrics");
+                //System.out.println("Computing metrics");
                 outputUnpacker = MessagePack.newDefaultUnpacker(new FileInputStream(outputFileName));
                 int c = clouds.size();
-
-                int[] departures = new int [c];
-                int[] overflow = new int [c];
-                int[] rejections = new int[c]; 
-                int[] arrivals = new int [c];
-                int[] localDepartures = new int [c];
-                int[] fedDeparturesCloud = new int [c];
                 HashMap<Integer, Integer> requestToCloud = new HashMap<Integer, Integer>();
-                ArrayList<Double> batchListRej = new ArrayList<Double>();
-                ArrayList<Double> batchListFor = new ArrayList<Double>();
                 int batchRej = 0;
                 int batchFor = 0;
                 int batchArr = 0;
                 int[] batchRejCloud = new int [c];
                 int[] batchForCloud = new int [c];
                 int[] batchArrCloud = new int [c];
-                ArrayList<Double>[] batchListRejCloud = (ArrayList<Double>[]) new ArrayList<?>[c];
-                ArrayList<Double>[] batchListForCloud = (ArrayList<Double>[]) new ArrayList<?>[c];
+                batchListRej = new ArrayList<Double>();
+                batchListFor = new ArrayList<Double>();
+                batchListRejCloud = (ArrayList<Double>[]) new ArrayList<?>[c];
+                batchListForCloud = (ArrayList<Double>[]) new ArrayList<?>[c];
                 for (int i = 0; i < c; i++) {
                     batchListRejCloud[i] = new ArrayList<Double>();
                     batchListForCloud[i] = new ArrayList<Double>();
@@ -1006,20 +1014,19 @@ public class Main {
 
                 //------------------------------------------------------------------------------------------------------------------------------------------
 
+                int zeroes = 0;
                 while (outputUnpacker.hasNext()) {
                     int requestID = outputUnpacker.unpackInt();
                     int poolID = outputUnpacker.unpackInt();
                     String time = outputUnpacker.unpackString();
                     Noise.Type type = Noise.Type.valueOf(outputUnpacker.unpackString());
-                    if (requestID >= cutoffPrime) {
+                    if (requestID == 0 && type.equals(Noise.Type.ARR)) {
+                        zeroes++;
+                    }
+                    if (requestID >= cutoff || zeroes > 1) {
                         switch (type) {
                             case ARR:
-                                if (poolID != -1) {
-                                    requestToCloud.put(requestID, poolID);
-                                } else {
-                                    throw new Exception ("Arrival is not thrown by arrival to the federation");
-                                }
-                                arrivals[poolID]++;
+                                requestToCloud.put(requestID, poolID);
                                 batchArr += 1;
                                 batchArrCloud[poolID] += 1;
                                 if (batchArr >= batching) {
@@ -1038,17 +1045,9 @@ public class Main {
                                 }
                                 break;
                             case DEP:
-                                if (poolID == -1) {
-                                    fedDeparturesCloud[requestToCloud.get(requestID)]++;
-                                    departures[requestToCloud.get(requestID)]++;
-                                } else {
-                                    localDepartures[poolID]+=1;
-                                    departures[poolID]+=1;
-                                }
                                 requestToCloud.remove(requestID);
                                 break;
                             case REJ:
-                                rejections[requestToCloud.get(requestID)]++;
                                 batchRej += 1;
                                 batchRejCloud[poolID] += 1;
                                 requestToCloud.remove(requestID);
@@ -1058,7 +1057,6 @@ public class Main {
                             case SER:
                                 break;
                             case OVR: 
-                                overflow[poolID]++;
                                 batchFor += 1;
                                 batchForCloud[poolID] += 1;
                                 break;
@@ -1068,47 +1066,69 @@ public class Main {
 
                 //------------------------------------------------------------------------------------------------------------------------------------------
 
-                if (metricType.equals("rej")) {
-                    if (metricCloud == -1) {
-                        metricArray = batchListRej;
-                    } else {
-                        metricArray = batchListRejCloud[metricCloud];
-                    }
+                if (metricType.equals("csv")) {
+                    exit = exitCondition(batchListRej, tStat, halfWidthReq) && exitCondition(batchListFor, tStat, halfWidthReq);
                 } else {
-                    if (metricCloud == -1) {
-                        metricArray = batchListFor;
+                    //java -jar target/cloudfed.jar experiment "0" 0 "type1:0:Exp[50]:Det[1]:Unif[1,1]|type2:0:Exp[50]:Det[1]:Unif[1,1]" "type1!50:1:0|type2!50:1:0" 1000000 1000000 "rej" -1 0.0004 0.05 100000
+                    if (metricType.equals("rej")) {
+                        if (metricCloud == -1) {
+                            metricArray = batchListRej;
+                        } else {
+                            metricArray = batchListRejCloud[metricCloud];
+                        }
+                    } else if (metricType.equals("for")) {
+                        if (metricCloud == -1) {
+                            metricArray = batchListFor;
+                        } else {
+                            metricArray = batchListForCloud[metricCloud];
+                        }
                     } else {
-                        metricArray = batchListForCloud[metricCloud];
+                        throw new Exception("invalid metric type");
                     }
+                    exit = exitCondition(metricArray, tStat, halfWidthReq);
+                    printerval(metricArray, tStat);
                 }
-                printerval(metricArray, tStat);
-                exit = correlationCheck(metricArray, tStat) && halfWidthCheck(metricArray, tStat, halfWidthReq);
                 cutoffPrime = 0;
-                System.out.println("Finished metrics");
+                //System.out.println("Finished metrics\n");
             }
-            System.out.println("Experiment complete");
+            //System.out.println("Experiment complete");
+            if (metricType.equals("csv")) {
+                String sc_overflow1 = "" + (50*mean(batchListForCloud[0]));
+                String sc_overflow2 = "" + (50*mean(batchListForCloud[1]));
+                String fed_overflow1 = "" + (50*mean(batchListRejCloud[0]));
+                String fed_overflow2 = "" + (50*mean(batchListRejCloud[1]));
+                String overflowReduction = ""+((mean(batchListFor) - mean(batchListRej))/mean(batchListFor));
+                CSVWriter writer = new CSVWriter(new FileWriter(new File("results.csv"), true));
+                String[] data = {lamb.get(0), x.get(0), n.get(0), Q.get(0), /*mst.get(0)*/"1", lamb.get(1), x.get(1), n.get(1), Q.get(1), /*mst.get(1)*/"1", overflowReduction, sc_overflow1, sc_overflow2, fed_overflow1, fed_overflow2};
+                writer.writeNext(data);
+                writer.close();
+            }
             return 0;
         }
     }
 
-    public static boolean correlationCheck (ArrayList<Double> batchList, double tStat) {
+    public static double mean (ArrayList<Double> batchList) {
         int k = batchList.size();
         double yBar = 0;
         for (int i = 0; i < k; i++) {
             yBar += batchList.get(i);
         }
         yBar /= k;
-        return Math.abs(correlation(k, yBar, batchList)) < tStat;
+        return yBar;
+    }
+
+    public static boolean exitCondition(ArrayList<Double> batchList, double tStat, double halfWidthReq) {
+        return correlationCheck(batchList, tStat) && halfWidthCheck(batchList, tStat, halfWidthReq);
+    }
+
+    public static boolean correlationCheck (ArrayList<Double> batchList, double tStat) {
+        int k = batchList.size();
+        return Math.abs(correlation(k, mean(batchList), batchList)) < tStat;
     }
 
     public static boolean halfWidthCheck (ArrayList<Double> batchList, double tStat, double halfWidthReq) {
         int k = batchList.size();
-        double yBar = 0;
-        for (int i = 0; i < k; i++) {
-            yBar += batchList.get(i);
-        }
-        yBar /= k;
-        double corr = correlation(k, yBar, batchList);
+        double yBar = mean(batchList);
         double var = 0;
         for (int i = 0; i < k; i++){
             var += Math.pow(yBar-batchList.get(i), 2);
