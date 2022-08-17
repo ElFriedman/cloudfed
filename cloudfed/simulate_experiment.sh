@@ -1,0 +1,2 @@
+#!/bin/sh
+java -jar target/cloudfed.jar experiment "0" 0 "type1:0:Exp[50]:Det[1]:Unif[1,1]|type2:0:Exp[70]:Det[1]:Unif[1,1]" "type1!25:1.0:25/25:1.0:0|type2!50:1.0:25" 1000000 1000000 "rej" 0 0.0008 0.05 100000

@@ -4,13 +4,13 @@
  streams:
    - type1
  serversets:
-   - count: 60
+   - count: 50
      rate: 1.0
-     shared: 40
+     shared: 25
 ---
  streams:
    - type2
  serversets:
-   - count: 45
+   - count: 50
      rate: 1.0
-     shared: 10
+     shared: 25

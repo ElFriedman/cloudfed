@@ -7,6 +7,6 @@ java -jar target/cloudfed.jar workload merge target/workload.msgpack target/work
 
 java -jar target/cloudfed.jar workload info target/workload.msgpack -A
 
-java -jar target/cloudfed.jar simulate simulate_unit_test.yaml output_unit.txt
+java -jar target/cloudfed.jar simulate simulate_unit_test.yaml target/output_unit.txt
 
-java -jar target/cloudfed.jar metrics output_unit.txt 0 -U
+java -jar target/cloudfed.jar metrics target/output_unit.txt 0 -U

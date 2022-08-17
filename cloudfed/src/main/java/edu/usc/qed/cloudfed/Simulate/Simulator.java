@@ -16,4 +16,16 @@ public abstract class Simulator extends AbstractSimulator {
             e.execute(this);
         }
     }
+
+    public void doAllEvents2 () throws Exception {
+        Event e;
+        while ((e = (Event) events.poll()) != null) {
+            time = e.time;
+            try {
+                e.execute(this);
+            } catch (Exception ex) { 
+                break;
+            }
+        }
+    }
 }

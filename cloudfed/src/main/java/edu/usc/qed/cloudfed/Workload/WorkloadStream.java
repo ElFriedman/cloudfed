@@ -12,7 +12,7 @@ public class WorkloadStream implements Comparable {
     private ArrivalProcess arrivalProcess;
     private BatchSizer batchSizer;
     private JobGenerator jobGenerator;
-    private String streamLabel;
+    public String streamLabel;
 
     public WorkloadStream (ArrivalProcess arrivalProcess, BatchSizer batchSizer, JobGenerator jobGenerator, String streamLabel) {
         this.arrivalProcess = arrivalProcess;

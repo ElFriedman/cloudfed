@@ -13,7 +13,7 @@ import org.msgpack.core.MessagePacker;
 public class WorkloadGenerator {
     private PriorityQueue<WorkloadStream> streamPQ;
 
-    public WorkloadGenerator (ArrayList<WorkloadStream> streams) {
+    public WorkloadGenerator (ArrayList<WorkloadStream> streams, BigDecimal startingTime) {
         streamPQ = new PriorityQueue<WorkloadStream>();
         for (WorkloadStream stream : streams) {
             streamPQ.add(stream);
