@@ -19,9 +19,11 @@ public class Generator extends Event {
         nextRequest = getRequest();
     }
 
+    //Create a new request, pass it to the simulator, and reinsert the Generator itself
     public void execute (AbstractSimulator simulator) throws Exception {
+        Arrival x = new Arrival(nextRequest, ((Simulator)simulator).now(), nextRequest.getCloud(simulator));
+        x.execute(simulator);
         nextRequest.getCloud(simulator).insert(simulator, nextRequest);
-        simulator.insert(new Arrival(nextRequest, ((Simulator)simulator).now(), nextRequest.getCloud(simulator)));
         try {
             if (unpacker.hasNext()) {
                 nextRequest = getRequest();
@@ -33,6 +35,7 @@ public class Generator extends Event {
         }
     }
 
+    //Creates a new request
     public Request getRequest () throws IOException {
         String streamLabel = unpacker.unpackString();
         BigDecimal time = new BigDecimal(unpacker.unpackString());

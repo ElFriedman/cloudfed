@@ -10,9 +10,13 @@ public class Cloud extends ServerPool {
     }
 
     @Override
+    /* 
+     * Forwards the request to the federation pool, and executes a rejection noise
+     */
     public void reject (AbstractSimulator simulator, Request r) throws Exception {
         overflow++;
         ((CloudSimulator)simulator).federation.insert(simulator, r);
-        simulator.insert(new Rejection(r, ((Simulator)simulator).now(), this));
+        Overflow x = new Overflow(r, ((Simulator)simulator).now(), this);
+        x.execute(simulator);
     }
 }

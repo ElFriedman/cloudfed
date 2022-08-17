@@ -7,6 +7,12 @@ public class Rejection extends Noise {
         super(r, time, pool);
     }
 
+    public void execute (AbstractSimulator simulator) throws Exception {
+        pool.listener.notify(this);
+        ((CloudSimulator)simulator).federation.listener.notify(this);
+        simulator.log(this);
+    }
+
     public Type getType() {
         return Type.REJ;
     }

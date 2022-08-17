@@ -4,13 +4,15 @@ import java.math.BigDecimal;
 import java.io.IOException;
 
 import org.msgpack.core.MessagePacker;
-
+/*
+ * Customizable workload stream
+ */
 public class WorkloadStream implements Comparable {
     private BigDecimal arrivalTime;
     private ArrivalProcess arrivalProcess;
     private BatchSizer batchSizer;
     private JobGenerator jobGenerator;
-    private String streamLabel;
+    public String streamLabel;
 
     public WorkloadStream (ArrivalProcess arrivalProcess, BatchSizer batchSizer, JobGenerator jobGenerator, String streamLabel) {
         this.arrivalProcess = arrivalProcess;
@@ -34,10 +36,12 @@ public class WorkloadStream implements Comparable {
         return n;
     }
 
+    //Set next time
     public void update () {
         arrivalTime = arrivalTime.add(arrivalProcess.getInterarrivalTime());
     }
     
+    //Get next time
     public BigDecimal getArrivalTime () {
         return arrivalTime;
     }

@@ -4,11 +4,13 @@ public class Listener {
     public int arrivals;
     public int departures;
     public int overflow;
+    public int rejections;
     
     public Listener () {
         arrivals = 0;
         departures = 0;
         overflow = 0;
+        rejections = 0;
     }
 
     public void notify(Noise e) {
@@ -21,11 +23,14 @@ public class Listener {
                 departures++;
                 break;
             case REJ:
-                overflow++;
+                rejections++;
                 break;
             case ENQ:
                 break;
             case SER:
+                break;
+            case OVR:
+                overflow++;
                 break;
         }
     }

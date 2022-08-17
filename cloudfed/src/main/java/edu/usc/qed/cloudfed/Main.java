@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import edu.usc.qed.cloudfed.Workload.*;
 import edu.usc.qed.cloudfed.Simulate.*;
 
-
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
@@ -22,8 +21,6 @@ import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.regex.Pattern;
 
-import javax.swing.JFrame;
-import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 import picocli.CommandLine;
@@ -36,14 +33,10 @@ import picocli.CommandLine.ScopeType;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessagePacker;
 import org.msgpack.core.MessageUnpacker;
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartPanel;
 import org.jfree.chart.ChartUtils;
-import org.jfree.chart.JFreeChart;
 import org.jfree.data.time.FixedMillisecond;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
-import org.jfree.data.xy.XYDataset;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -51,16 +44,24 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 
+import org.apache.commons.math3.stat.inference.TTest;
+
 import com.esotericsoftware.yamlbeans.YamlReader;
 
+/*
+ * https://github.com/EsotericSoftware/yamlbeans
+ * https://github.com/msgpack/msgpack-java/blob/develop/msgpack-core/src/test/java/org/msgpack/core/example/MessagePackExample.java
+ * https://www.baeldung.com/java-picocli-create-command-line-program
+ * 
+ */
 
 @Command(name = "cloudfed", mixinStandardHelpOptions = true, version = "cloudfed 1.0",
          description = "Cloud Federation Simulator",
          scope = ScopeType.INHERIT,
-         subcommands = { /*Main.Seed.class,*/ Main.Workload.class, Main.Simulate.class, Main.Metrics.class })
+         subcommands = { /*Main.Seed.class,*/ Main.Workload.class, Main.Simulate.class, Main.Metrics.class, Main.Experiment.class })
 public class Main {
-    private final static Logger logger =  LoggerFactory.getLogger(Main.class); //what is this for
-    private static long seed = 0;
+    private final static Logger logger =  LoggerFactory.getLogger(Main.class); //currently unused
+    private static long seed = 0; //default seed
     private static RandomGeneratorFactory<RandomGenerator> RGF = RandomGeneratorFactory.of("Random");
     private static RandomGenerator rng;
     private static ArrayList<Integer[]> basics;
@@ -117,20 +118,20 @@ public class Main {
         @Override public Integer call() throws Exception {
             System.out.println("Genenerating a workload");
 
-            //setting seed
+            //setting random numbger generator seed
             if (seedString != null) {
                 seed = Long.parseLong(seedString);
                 rng = RGF.create(seed);
-            } else {
+            } else { //if no seed given, then make a random long for the seed
                 seed = Long.parseLong("" + ((int)(1000000*Math.random())));
                 rng = RGF.create(seed);
             }
 
             //stopping criteria
             StoppingCriterion stoppingCriterion = null;
-            if (Pattern.matches("Job\\[\\d+\\]", stopCritString)) { //job criterion
+            if (Pattern.matches("Job\\[\\d+\\]", stopCritString)) { //job based criterion
                 stoppingCriterion = new JobStoppingCriterion(Integer.parseInt(stopCritString.substring(4, stopCritString.length()-1)));
-            } else if (Pattern.matches("Time\\[\\d+(\\.\\d+)?\\]", stopCritString)) { //time criterion
+            } else if (Pattern.matches("Time\\[\\d+(\\.\\d+)?\\]", stopCritString)) { //time based criterion
                 stoppingCriterion = new TimeStoppingCriterion(new BigDecimal(stopCritString.substring(5, stopCritString.length()-1)));
             } else {
                 System.out.println("Invalid stopping criterion");
@@ -158,6 +159,8 @@ public class Main {
                 String APString = s.substring(0, colon1);
                 if(Pattern.matches("Exp\\[\\d+(\\.\\d+)?\\]", APString)) { //Poisson
                     arrivalProcess = new PoissonArrivalProcess(rng, Double.parseDouble(APString.substring(4, colon1 - 1)));
+                } else if(Pattern.matches("Reg\\[\\d+(\\.\\d+)?\\]", APString)) { //Periodic
+                    arrivalProcess = new PeriodicArrivalProcess(Double.parseDouble(APString.substring(4, colon1 - 1)));
                 } else {
                     System.out.println("Invalid arrival process distribution");
                 }
@@ -167,7 +170,7 @@ public class Main {
                 String s2 = s.substring(colon1 + 1);
                 int colon2 = s2.indexOf("]") + 1;
                 String BSString = s2.substring(0, colon2);
-                if (Pattern.matches("Det\\[\\d+\\]", BSString)) { //Determined
+                if (Pattern.matches("Det\\[\\d+\\]", BSString)) { //Deterministic
                     batchSizer = new DetBatchSizer(Integer.parseInt(BSString.substring(4, colon2 - 1)));
                 } else if (Pattern.matches("Dist\\[0\\.\\d+:\\d+(\\.\\d+)?(,0\\.\\d+:\\d+(\\.\\d+)?)*\\]", BSString)) { //Distributed
                     int entries = 1 + (int) (BSString.chars().filter(ch -> ch == ',').count());
@@ -191,10 +194,16 @@ public class Main {
                 //JobGenerator
                 JobGenerator jobGenerator = null;
                 String s3 = s2.substring(colon2 + 1);
-                if (Pattern.matches("Unif\\[\\d+,\\d+\\]", s3)) { //Uniform
+                if (Pattern.matches("Unif\\[\\d+(\\.\\d+)?,\\d+(\\.\\d+)?\\]", s3)) { //Uniform
                     jobGenerator = new UniformJobGenerator(rng, Double.parseDouble(s3.substring(5, s3.indexOf(","))), 
                     Double.parseDouble(s3.substring(s3.indexOf(",") + 1, s3.length() - 1)));
-                } else {
+                } else if (Pattern.matches("Par\\[\\d+(\\.\\d+)?,\\d+(\\.\\d+)?\\]", s3)) { //Pareto
+                    jobGenerator = new ParetoJobGenerator(rng, Double.parseDouble(s3.substring(4, s3.indexOf(","))),
+                    Double.parseDouble(s3.substring(s3.indexOf(",") + 1, s3.length() - 1)));
+                } else if (Pattern.matches("Exp\\[\\d+(\\.\\d+)?\\]", s3)) { //Exponential
+                    jobGenerator = new ExponentialJobGenerator(rng, Double.parseDouble(s3.substring(4, s3.length()-1)));
+                }
+                else {
                     System.out.println("Invalid job generator distribution");
                 }
 
@@ -203,7 +212,7 @@ public class Main {
 
                 streams.add(new WorkloadStream(arrivalProcess, batchSizer, jobGenerator, streamLabel));
             }
-            WorkloadGenerator generator = new WorkloadGenerator(streams);
+            WorkloadGenerator generator = new WorkloadGenerator(streams, new BigDecimal(0));
 
             MessagePacker packer = MessagePack.newDefaultPacker(new FileOutputStream(fileName));
             if(streamToMJS.size() != streamToQoS.size()) {
@@ -434,24 +443,28 @@ public class Main {
             //basics
             basics = new ArrayList<Integer[]>();
             for (Cloud cloud : clouds) {
-                Integer[] arr = new Integer[3];
-                arr[0] = cloud.overflow;
-                arr[1] = cloud.rejected;
-                arr[2] = cloud.completed;
+                Integer[] arr = new Integer[4];
+                if (cloud.overflow + cloud.completed != cloud.arrivals){ 
+                    throw new Exception ("cloud.overflow + cloud.completed != cloud.arrivals for cloud "+ basics.size());
+                }
+                arr[0] = cloud.arrivals;
+                arr[1] = cloud.overflow;
+                arr[2] = cloud.rejected;
+                arr[3] = cloud.completed; //locally
                 basics.add(arr);
-                //System.out.println(Arrays.toString(arr));
             }
 
             //listeners
             listeners = new ArrayList<Integer[]>();
             for (Cloud cloud : clouds) {
                 Listener l = cloud.listener;
-                Integer[] arr = new Integer[3];
-                arr[0] = l.overflow;
-                arr[1] = l.arrivals - l.departures;
-                arr[2] = l.arrivals - l.overflow;
+                Integer[] arr = new Integer[4];
+                arr[0] = l.arrivals;
+                arr[1] = l.overflow;
+                arr[2] = l.rejections;
+                arr[3] = l.departures; //locally
                 listeners.add(arr);
-                //System.out.println(Arrays.toString(arr));
+                //System.out.println(Arrays.asList(arr));
             }
 
             for (int i = 0; i < basics.size(); i++) {
@@ -461,10 +474,11 @@ public class Main {
                     if (!arrB[k].equals(arrL[k])) {
                         System.out.println(arrB[k] + " (basics) not equals " + arrL[k] + " (listeners)");
                         throw new Exception("Basics not equal to listener for cloud " + i + " at position " + k); 
+                        //0 arrival. 1 overflow. 2 rejected. 3 departure (locally)
                     }
                 }
             }
-
+            System.out.println("Finished simulating");
             return 0;
         }
     }
@@ -474,18 +488,21 @@ public class Main {
         @ParentCommand private Main parent;
 
         @Parameters (index = "0") private String inputFileName;
+        @Parameters (index = "1") private int steadyState;
         @Option(names = {"-U", "--unitTest"}) private boolean unitTest;
         @Option(names = {"-E", "--endToEnd"}) private boolean endToEnd;
-        @Option(names = {"-C", "--chart"}) private boolean chartBool;
+        @Option(names = {"-C", "--chart"}) private String chartSettings;
+        @Option(names = {"-B", "--batching"}) private int batching;
+
 
         @Override public Integer call() throws Exception {
             System.out.println("Computing metrics");
             MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(new FileInputStream(inputFileName));
-            int c = unpacker.unpackInt();
+            int c = unpacker.unpackInt(); //amount of clouds
             for (int i = 0; i < c; i++) {
                 int cloudID = unpacker.unpackInt();
                 //System.out.println("cloud"+cloudID);
-                int n = unpacker.unpackInt();
+                int n = unpacker.unpackInt(); //cloud server count
                 for (int j = 0; j < n; j++) {
                     int serverID = unpacker.unpackInt();
                     double workRate = unpacker.unpackDouble();
@@ -497,127 +514,188 @@ public class Main {
                 throw new Exception("something went big wrong bc fed ID aint -1");
             }
             //System.out.println("fed");
-            int m = unpacker.unpackInt();
+            int m = unpacker.unpackInt(); //fed server count
             for (int i = 0; i < m; i++) {
                 int serverID = unpacker.unpackInt();
                 double workRate = unpacker.unpackDouble();
                 //System.out.println("\tserver" + serverID + " - work rate: " + workRate);
             }
-            int[] departures = new int [c]; //total completed
-            int[] overflow = new int [c]; //overflow
+            int[] departures = new int [c];
+            int[] overflow = new int [c];
+            int[] rejections = new int[c]; 
             int[] arrivals = new int [c];
-            //hence rejected = A-D, completed locally = A-R, and fed completed = D-R
+            int[] localDepartures = new int [c];
+            int[] fedDeparturesCloud = new int [c];
             int fedArrivals = 0;
             int fedDepartures = 0;
             int fedRejections = 0;
-            HashMap<Integer, Integer> requestToCloud = new HashMap<Integer, Integer> ();
-
+            HashMap<Integer, Integer> requestToCloud = new HashMap<Integer, Integer>();
+            int xzoom = 1;
             TimeSeriesCollection dataset = new TimeSeriesCollection();  
-            TimeSeries net = new TimeSeries("Series1");  
+            TimeSeries netRej = new TimeSeries("Net Rejection Rate");  
+            TimeSeries netFor = new TimeSeries("Net Forwarding Rate");  
             int totalDepartures = 0;
-            TimeSeries lastX = new TimeSeries("Series1");
-            int x = 10000;
+
+            int lastX = 20000; // last X for cumulative
+            int chartInterval = 5000; //interval for adding data to chart
+            if (chartSettings != null) {
+                int colon = chartSettings.indexOf(":");
+                lastX = Integer.parseInt(chartSettings.substring(0, colon));
+                chartInterval = Integer.parseInt(chartSettings.substring(colon+1));
+            }
+
+            TimeSeries lastRej = new TimeSeries("Last " + lastX + " Rejection Rate");
+            TimeSeries lastFor = new TimeSeries("Last " + lastX + " Forwarding Rate");
             int currSum = 0;
             Queue<Integer> toRemove = new LinkedList<Integer>();
 
+            ArrayList<Double> batchListRej = new ArrayList<Double>();
+            ArrayList<Double> batchListFor = new ArrayList<Double>();
+            int batchRej = 0;
+            int batchFor = 0;
+            int batchArr = 0;
+            int[] batchRejCloud = new int [c];
+            int[] batchForCloud = new int [c];
+            int[] batchArrCloud = new int [c];
+            ArrayList<Double>[] batchListRejCloud = (ArrayList<Double>[]) new ArrayList<?>[c];
+            ArrayList<Double>[] batchListForCloud = (ArrayList<Double>[]) new ArrayList<?>[c];
+            for (int i = 0; i < c; i++) {
+                batchListRejCloud[i] = new ArrayList<Double>();
+                batchListForCloud[i] = new ArrayList<Double>();
+            }
             while (unpacker.hasNext()) {
                 int requestID = unpacker.unpackInt();
                 int poolID = unpacker.unpackInt();
                 String time = unpacker.unpackString();
                 Noise.Type type = Noise.Type.valueOf(unpacker.unpackString());
-                int serverID;
-                switch (type) {
-                    case ARR:
-                        if (poolID == -1) {
-                            fedArrivals++;
-                        } else {
-                            arrivals[poolID]+=1;
-                        }
-                        requestToCloud.put(requestID, poolID);
-                        double jobSize = unpacker.unpackDouble();
-                        String streamLabel = unpacker.unpackString();
-                        break;
-                    case DEP:
-                        serverID = unpacker.unpackInt();
-                        if (poolID == -1) {
-                            fedDepartures++;
-                            departures[requestToCloud.get(requestID)]++;
-                        } else {
-                            departures[poolID]+=1;
-                        }
-                        totalDepartures += 1;
-                        if (totalDepartures%100 == 0) {
-                            net.add(new FixedMillisecond(totalDepartures + fedRejections), fedRejections/(double)totalDepartures);
-                        }
-                        currSum += 0;
-                        toRemove.add(0);
-                        if (toRemove.size() > x) {
-                            currSum -= toRemove.poll();
-                        }
-                        if (totalDepartures%100 == 0) {
-                            lastX.add(new FixedMillisecond(totalDepartures + fedRejections), currSum/(double)toRemove.size());
-                        }
-                        break;
-                    case REJ:
-                        if (poolID == -1) {
+                if (requestID >= steadyState) {
+                    switch (type) {
+                        case ARR: 
+                            //double jobSize = unpacker.unpackDouble();
+                            //String streamLabel = unpacker.unpackString();
+                            if (poolID != -1) {
+                                requestToCloud.put(requestID, poolID);
+                            } else {
+                                throw new Exception ("Arrival is not thrown by arrival to the federation");
+                            }
+                            arrivals[poolID]++;
+                            if (batching != 0) {
+                                batchArr += 1;
+                                batchArrCloud[poolID] += 1;
+                                if (batchArr >= batching) {
+                                    batchListRej.add(batchRej/(double)batchArr);
+                                    batchListFor.add(batchFor/(double)batchArr);
+                                    batchArr = 0;
+                                    batchRej = 0;
+                                    batchFor = 0;
+                                }
+                                if (batchArrCloud[poolID] >= batching) {
+                                    batchListRejCloud[poolID].add(batchRejCloud[poolID]/(double)batchArrCloud[poolID]);
+                                    batchListForCloud[poolID].add(batchForCloud[poolID]/(double)batchArrCloud[poolID]);
+                                    batchArrCloud[poolID] = 0;
+                                    batchRejCloud[poolID] = 0;
+                                    batchForCloud[poolID] = 0;
+                                }
+                            }
+                            break;
+                        case DEP:
+                            //int serverID = unpacker.unpackInt();
+                            if (poolID == -1) {
+                                fedDepartures++;
+                                fedDeparturesCloud[requestToCloud.get(requestID)]++;
+                                departures[requestToCloud.get(requestID)]++;
+                            } else {
+                                localDepartures[poolID]+=1;
+                                departures[poolID]+=1;
+                            }
+                            totalDepartures += 1;
+                            if (chartSettings != null) {
+                                currSum += 0;
+                                toRemove.add(0);
+                                if (toRemove.size() > lastX) {
+                                    currSum -= toRemove.poll();
+                                }
+                                if ((totalDepartures+fedRejections)%chartInterval == 0) {
+                                    //System.out.println(totalDepartures + fedRejections);
+                                    netRej.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), fedRejections/(double)(totalDepartures+fedRejections));
+                                    lastRej.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), currSum/(double)toRemove.size());
+                                }
+                            }
+                            requestToCloud.remove(requestID);
+                            break;
+                        case REJ:
                             fedRejections++;
-
-                            if (totalDepartures%100 == 0) {
-                                net.add(new FixedMillisecond(totalDepartures + fedRejections), fedRejections/(double)totalDepartures);
+                            rejections[requestToCloud.get(requestID)]++;
+                            if (chartSettings != null) {
+                                currSum += 1;
+                                toRemove.add(1);
+                                if (toRemove.size() > lastX) {
+                                    currSum -= toRemove.poll();
+                                }
+                                if ((fedRejections+totalDepartures)%chartInterval == 0) {
+                                    //System.out.println(totalDepartures + fedRejections);
+                                    netRej.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), fedRejections/(double)(totalDepartures+fedRejections));
+                                    lastRej.add(new FixedMillisecond(xzoom*(totalDepartures + fedRejections)), currSum/(double)toRemove.size());
+                                }
                             }
-                            currSum += 1;
-                            toRemove.add(1);
-                            if (toRemove.size() > x) {
-                                currSum -= toRemove.poll();
+                            if (batching != 0) {
+                                batchRej += 1;
+                                batchRejCloud[poolID] += 1;
                             }
-                            if (totalDepartures%100 == 0) {
-                                lastX.add(new FixedMillisecond(totalDepartures + fedRejections), currSum/(double)toRemove.size());
+                            requestToCloud.remove(requestID);
+                            break;
+                        case ENQ:
+                            break;
+                        case SER:
+                            //int serverID = unpacker.unpackInt();
+                            break;
+                        case OVR: 
+                            overflow[poolID]++;
+                            fedArrivals++;
+                            if (batching != 0) {
+                                batchFor += 1;
+                                batchForCloud[poolID] += 1;
                             }
-                        } else {
-                            overflow[poolID]+=1;
-                        }
-                        break;
-                    case ENQ:
-                        break;
-                    case SER:
-                        serverID = unpacker.unpackInt();
-                        break;
+                            break;
+                    }
                 }
             }
-
-            dataset.addSeries(net);
-            dataset.addSeries(lastX);
-
+            dataset.addSeries(netRej);
+            dataset.addSeries(lastRej);
+            //dataset.addSeries(netFor);
+            //dataset.addSeries(netRej);
+            
             int completed = 0;
             metrics = new ArrayList<Integer[]>();
             for (int i = 0; i < c; i++) {
+                if (arrivals[i] != departures[i] + rejections[i]) {
+                    throw new Exception ("Arrivals != departures + rejections for cloud " + i);
+                }
+                if (arrivals[i] != localDepartures[i] + overflow[i]) {
+                    throw new Exception ("Arrivals != local departures + overflow for cloud " + i);
+                }
+                if (departures[i] != localDepartures[i] + fedDeparturesCloud[i]) {
+                    throw new Exception ("Departures != local departures + fed departures for cloud " + i);
+                }
                 System.out.println("cloud"+i);
-                System.out.println("\tOverflow:" + overflow[i]);
-                System.out.println("\tRejected:" + (arrivals[i]-departures[i]));
-                System.out.println("\tCompleted locally:" + (arrivals[i]-overflow[i]));
-                completed += arrivals[i]-overflow[i];
-
+                System.out.println("\tArrivals:" + arrivals[i]);
+                System.out.println("\tOverflow:" + overflow[i] + " - Rate: " + overflow[i]/(double)arrivals[i]);
+                System.out.println("\tRejected:" + (rejections[i]) + " - Rate: " + (rejections[i])/(double)arrivals[i]);
+                System.out.println("\tCompleted locally:" + (localDepartures[i])  + " - Rate: " + (localDepartures[i])/(double)arrivals[i]);
+                completed += localDepartures[i];
                 Integer[] arr = new Integer[3];
                 arr[0] = overflow[i];
-                arr[1] = arrivals[i] - departures[i];
-                arr[2] = arrivals[i] - overflow[i];
+                arr[1] = rejections[i];
+                arr[2] = localDepartures[i];
                 metrics.add(arr);
             }
             completed += fedDepartures;
+            if (fedRejections + fedDepartures != fedArrivals) {
+                throw new Exception ("Fed rejections + fed departures != fed arrivals");
+            }
             System.out.println("Completed by federation:" + fedDepartures);
             System.out.println("Rejected by federation:" + fedRejections);
             System.out.println("Net rejection rate:" + (fedRejections/(double)(completed+fedRejections)));
-
-            /*for (int i = 0; i < basics.size(); i++) {
-                Integer[] arrB = basics.get(i);
-                Integer[] arrM = metrics.get(i);
-                for (int k = 0; k < 3; k++) {
-                    if (arrB[k] != arrM[k]) {
-                        throw new Exception("Basics not equal to metrics for cloud " + i + " at position " + k); 
-                    }
-                }
-            }*/
-
 
             if (unitTest) {
                 if (!unitTest(metrics.get(0), metrics.get(1))) {
@@ -631,22 +709,414 @@ public class Main {
                 System.out.println("E2E");
             }
 
-            if (chartBool) {
+            if (chartSettings != null) {
                 chart = new TimeSeriesChart("Rejection Rate over Time", dataset);  
+                /*
                 chart.setSize(800, 400);  
                 chart.setLocationRelativeTo(null);
                 chart.setVisible(true);  
                 chart.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-    
-                ChartUtils.saveChartAsPNG(new File("soft3d.png"), chart.chart, 400, 300);
+                */
+                ChartUtils.saveChartAsPNG(new File("soft3d.png"), chart.chart, 1200, 900);
 
+            }
+
+            if (batching != 0) {
+                System.out.println("Federation rejection rate");
+                printerval(batchListRej, 1.96);
+                for (int i = 0; i < c; i++) {
+                    System.out.println("Cloud " + i + " rejection rate");
+                    printerval(batchListRejCloud[i], 1.96);
+                }
+                System.out.println("Federation forwarding rate");
+                printerval(batchListFor, 1.96);
+                for (int i = 0; i < c; i++) {
+                    System.out.println("Cloud " + i + " forwarding rate");
+                    printerval(batchListForCloud[i], 1.96);
+                }
             }
             return 0;
         }
     }
 
-    public static boolean unitTest (Integer[] metrics1, Integer metrics2[]) {
-        return metrics1[0].equals(1054) && metrics1[1].equals(32) && metrics1[2].equals(3214) && metrics2[0].equals(2014) && metrics2[1].equals(189) && metrics2[2].equals(0);
+    public static boolean unitTest (Integer[] metrics1, Integer [] metrics2) {
+        //System.out.println(Arrays.asList(metrics1));
+        //System.out.println(Arrays.asList(metrics2));
+        return metrics1[0].equals(1056) && metrics1[1].equals(28) && metrics1[2].equals(3212) && metrics2[0].equals(2014) && metrics2[1].equals(196) && metrics2[2].equals(0);
+    }
+
+    //see https://rossetti.github.io/RossettiArenaBook/ch5-BatchMeansMethod.html#ref-kelton2004simulation
+    //lag 1 correlation
+    public static double correlation (int k, double yBar, ArrayList<Double> yList) {
+        double t1 = Math.sqrt((k*k-1)/(double)(k-2)); //term 1
+        double pNum = 0;//numerator
+        for (int j = 0; j < k-1; j++) {
+            pNum += (yList.get(j)-yBar) * (yList.get(j+1)-yBar);
+        }
+        double pDen = 0;//denominator
+        for (int j = 0; j < k; j++) {
+            pDen += Math.pow(yList.get(j)-yBar, 2);
+        }
+        double p1 = pNum/pDen;
+        double fracNum = Math.pow(yList.get(0)-yBar, 2) + Math.pow(yList.get(k-1)-yBar, 2);
+        double fracDen = 2 * pDen;
+        double frac = fracNum/fracDen;
+        double t2 = p1 + frac; //term 2
+        return t1 * t2;
+    } 
+
+    public static void printerval (ArrayList<Double> batchList, double tStat) {
+        int k = batchList.size();
+        double yBar = 0;
+        for (int i = 0; i < k; i++) {
+            yBar += batchList.get(i);
+        }
+        yBar /= k;
+        double corr = correlation(k, yBar, batchList);
+        double var = 0;
+        for (int i = 0; i < k; i++){
+            var += Math.pow(yBar-batchList.get(i), 2);
+        }
+        var /= (k-1);
+        double stdev = Math.sqrt(var);
+        double halfWidth = tStat * stdev/Math.sqrt((double)k);
+        System.out.println(k + " batches");
+        System.out.println("Correlation: " + corr);
+        System.out.println("Mean: " + yBar);
+        System.out.println("Halfwidth: " + halfWidth);
+        System.out.println("Lower bound: " + (yBar - halfWidth));
+        System.out.println("Upper bound: " + (yBar + halfWidth));
+        System.out.println("---------------");
+    }
+
+    
+    //------------------------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------------------------
+    
+    @Command(name = "experiment", description = "Perform an experiment in the simulation.")
+    static class Experiment implements Callable<Integer> {
+        @ParentCommand private Main parent;
+
+        @Parameters (index = "0") private String seedString; //Long format
+        @Parameters (index = "1") private int runID;
+        @Parameters (index = "2") private String workloadString;
+        @Parameters (index = "3") private String simulateString;
+        @Parameters (index = "4") private int cutoff;
+        @Parameters (index = "5") private int checkingInterval;
+        @Parameters (index = "6") private String metricType;
+        @Parameters (index = "7") private int metricCloud;
+        @Parameters (index = "8") private double halfWidthReq;
+        @Parameters (index = "9") private double alpha; //for tstat and confidence interval
+        @Parameters (index = "10") private int batchSize;
+
+        //------------------------------------------------------------------------------------------------------------------------------------------
+
+        @Override public Integer call() throws Exception {
+            boolean exit = false;
+            seed = Long.parseLong(seedString);
+            rng = RGF.create(seed);
+            int cutoffPrime = cutoff;
+            //int batching = checkingInterval/20;
+            int batching = batchSize;
+            double tStat = 1.96; //DO THIS DO THIS
+            ArrayList<Double> metricArray = null;
+            String workloadFileName = "target/workload" + runID + ".txt";
+            String outputFileName = "target/output" + runID + ".txt";
+
+            //------------------------------------------------------------------------------------------------------------------------------------------
+            //------------------------------------------------------------------------------------------------------------------------------------------
+
+            ArrayList<WorkloadStream> streams = new ArrayList<WorkloadStream>();
+            HashMap<String, Double> streamToMJS = new HashMap<String, Double>();
+            HashMap<String, Double> streamToQoS = new HashMap<String, Double>();
+
+            String[] streamStrings = workloadString.split("\\|");
+            for (String s : streamStrings) {
+                //streamLabel
+                int colon0 = s.indexOf(":");
+                String streamLabel = s.substring(0, colon0);
+                s = s.substring(colon0 + 1);
+
+                //------------------------------------------------------------------------------------------------------------------------------------------
+
+                //QoS
+                int colon00 = s.indexOf(":");
+                double QoS = Double.parseDouble(s.substring(0, colon00));
+                s = s.substring(colon00 + 1);
+
+                //------------------------------------------------------------------------------------------------------------------------------------------
+
+                //ArrivalProcess
+                ArrivalProcess arrivalProcess = null;
+                int colon1 = s.indexOf("]") + 1;
+                String APString = s.substring(0, colon1);
+                if(Pattern.matches("Exp\\[\\d+(\\.\\d+)?\\]", APString)) { //Poisson
+                    arrivalProcess = new PoissonArrivalProcess(rng, Double.parseDouble(APString.substring(4, colon1 - 1)));
+                } else if(Pattern.matches("Reg\\[\\d+(\\.\\d+)?\\]", APString)) { //Periodic
+                    arrivalProcess = new PeriodicArrivalProcess(Double.parseDouble(APString.substring(4, colon1 - 1)));
+                } else {
+                    System.out.println("Invalid arrival process distribution");
+                }
+                
+                //------------------------------------------------------------------------------------------------------------------------------------------
+
+                //BatchSizer
+                BatchSizer batchSizer = null;
+                String s2 = s.substring(colon1 + 1);
+                int colon2 = s2.indexOf("]") + 1;
+                String BSString = s2.substring(0, colon2);
+                if (Pattern.matches("Det\\[\\d+\\]", BSString)) { //Deterministic
+                    batchSizer = new DetBatchSizer(Integer.parseInt(BSString.substring(4, colon2 - 1)));
+                } else if (Pattern.matches("Dist\\[0\\.\\d+:\\d+(\\.\\d+)?(,0\\.\\d+:\\d+(\\.\\d+)?)*\\]", BSString)) { //Distributed
+                    int entries = 1 + (int) (BSString.chars().filter(ch -> ch == ',').count());
+                    double[] probabilities = new double[entries];
+                    int[] batchSizes = new int[entries];
+                    BSString = BSString.substring(5);
+                    int stop = 0;
+                    for (int i = 0; i < entries; i++) {
+                        stop = BSString.indexOf(":");
+                        probabilities[i] = Double.parseDouble(BSString.substring(0, stop));
+                        BSString = BSString.substring(stop + 1);
+                        stop = BSString.indexOf(",") < 0 ? BSString.indexOf("]") : BSString.indexOf(",");
+                        batchSizes[i] = Integer.parseInt(BSString.substring(0, stop));
+                        BSString = BSString.substring(stop + 1);
+                    }
+                    batchSizer = new DistBatchSizer(rng, probabilities, batchSizes);
+                } else {
+                    System.out.println("Invalid batch sizer distribution");
+                }
+
+                //------------------------------------------------------------------------------------------------------------------------------------------
+
+                //JobGenerator
+                JobGenerator jobGenerator = null;
+                String s3 = s2.substring(colon2 + 1);
+                if (Pattern.matches("Unif\\[\\d+(\\.\\d+)?,\\d+(\\.\\d+)?\\]", s3)) { //Uniform
+                    jobGenerator = new UniformJobGenerator(rng, Double.parseDouble(s3.substring(5, s3.indexOf(","))), 
+                    Double.parseDouble(s3.substring(s3.indexOf(",") + 1, s3.length() - 1)));
+                } else if (Pattern.matches("Par\\[\\d+(\\.\\d+)?,\\d+(\\.\\d+)?\\]", s3)) { //Pareto
+                    jobGenerator = new ParetoJobGenerator(rng, Double.parseDouble(s3.substring(4, s3.indexOf(","))),
+                    Double.parseDouble(s3.substring(s3.indexOf(",") + 1, s3.length() - 1)));
+                } else if (Pattern.matches("Exp\\[\\d+(\\.\\d+)?\\]", s3)) { //Exponential
+                    jobGenerator = new ExponentialJobGenerator(rng, Double.parseDouble(s3.substring(4, s3.length()-1)));
+                }
+                else {
+                    System.out.println("Invalid job generator distribution");
+                }
+                
+                streamToMJS.put(streamLabel, jobGenerator.meanJobSize());
+                streamToQoS.put(streamLabel, QoS);
+                streams.add(new WorkloadStream(arrivalProcess, batchSizer, jobGenerator, streamLabel));
+            }
+            WorkloadGenerator generator = new WorkloadGenerator(streams, new BigDecimal(0));
+
+            //------------------------------------------------------------------------------------------------------------------------------------------
+            //------------------------------------------------------------------------------------------------------------------------------------------
+
+            ArrayList<Server> federationPool = new ArrayList<Server>();
+            HashMap<String, Cloud> streamToCloud = new HashMap<String, Cloud>();
+            ArrayList<Cloud> clouds = new ArrayList<Cloud>();
+            int j = 0;
+            String[] cloudStrings = simulateString.split("\\|");
+            for (String cloudString : cloudStrings) {
+                String streamsString = cloudString.substring(0, cloudString.indexOf("!"));
+                ArrayList<Server> serverPool = new ArrayList<Server>();
+                String[] serverStrings = cloudString.substring(cloudString.indexOf("!")+1).split("/");
+                for (String serverString : serverStrings) {
+                    int colon0 = serverString.indexOf(":");
+                    int count = Integer.parseInt(serverString.substring(0, colon0));
+                    serverString = serverString.substring(colon0+1);
+                    int colon1 = serverString.indexOf(":");
+                    double rate = Double.parseDouble(serverString.substring(0, colon1));
+                    serverString = serverString.substring(colon1+1);
+                    int shared = Integer.parseInt(serverString);
+                    int local = count - shared;
+                    for (int i = 0 ; i < local; i++) {
+                        serverPool.add(new Server(rate, j));
+                        j++;
+                    }
+                    for (int i = 0; i < shared; i++) {
+                        federationPool.add(new Server(rate, j));
+                        j++;
+                    }
+                }
+                Cloud cloud = new Cloud(serverPool, clouds.size());
+                for (String streamLabel : streamsString.split(":")) {
+                    streamToCloud.put(streamLabel, cloud);
+                }
+                clouds.add(cloud);
+            }
+
+            Federation federation = new Federation(federationPool);
+            CloudSimulator cloudSim = new CloudSimulator(federation, clouds, streamToCloud, streamToQoS, streamToMJS);
+            MessagePacker workloadPacker;
+            MessageUnpacker workloadUnpacker;
+            MessagePacker outputPacker;
+            MessageUnpacker outputUnpacker;
+
+            while (!exit) {
+
+                System.out.println("Genenerating workload");
+                workloadPacker = MessagePack.newDefaultPacker(new FileOutputStream(workloadFileName));
+                generator.generateWorkload(workloadPacker, new JobStoppingCriterion(checkingInterval + cutoffPrime));
+                workloadPacker.close();
+                System.out.println("Workload generated");
+
+                //------------------------------------------------------------------------------------------------------------------------------------------
+                //------------------------------------------------------------------------------------------------------------------------------------------
+
+                System.out.println("Simulating");
+                workloadUnpacker = MessagePack.newDefaultUnpacker(new FileInputStream(workloadFileName));
+                outputPacker = MessagePack.newDefaultPacker(new FileOutputStream(outputFileName, true));
+                cloudSim.initiateSimulation(outputPacker, workloadUnpacker);
+                cloudSim.doAllEvents2();
+                workloadUnpacker.close();
+                outputPacker.close();
+                System.out.println("Finished simulating");
+
+                //------------------------------------------------------------------------------------------------------------------------------------------
+                //------------------------------------------------------------------------------------------------------------------------------------------
+
+                System.out.println("Computing metrics");
+                outputUnpacker = MessagePack.newDefaultUnpacker(new FileInputStream(outputFileName));
+                int c = clouds.size();
+
+                int[] departures = new int [c];
+                int[] overflow = new int [c];
+                int[] rejections = new int[c]; 
+                int[] arrivals = new int [c];
+                int[] localDepartures = new int [c];
+                int[] fedDeparturesCloud = new int [c];
+                HashMap<Integer, Integer> requestToCloud = new HashMap<Integer, Integer>();
+                ArrayList<Double> batchListRej = new ArrayList<Double>();
+                ArrayList<Double> batchListFor = new ArrayList<Double>();
+                int batchRej = 0;
+                int batchFor = 0;
+                int batchArr = 0;
+                int[] batchRejCloud = new int [c];
+                int[] batchForCloud = new int [c];
+                int[] batchArrCloud = new int [c];
+                ArrayList<Double>[] batchListRejCloud = (ArrayList<Double>[]) new ArrayList<?>[c];
+                ArrayList<Double>[] batchListForCloud = (ArrayList<Double>[]) new ArrayList<?>[c];
+                for (int i = 0; i < c; i++) {
+                    batchListRejCloud[i] = new ArrayList<Double>();
+                    batchListForCloud[i] = new ArrayList<Double>();
+                }
+
+                //------------------------------------------------------------------------------------------------------------------------------------------
+
+                while (outputUnpacker.hasNext()) {
+                    int requestID = outputUnpacker.unpackInt();
+                    int poolID = outputUnpacker.unpackInt();
+                    String time = outputUnpacker.unpackString();
+                    Noise.Type type = Noise.Type.valueOf(outputUnpacker.unpackString());
+                    if (requestID >= cutoffPrime) {
+                        switch (type) {
+                            case ARR:
+                                if (poolID != -1) {
+                                    requestToCloud.put(requestID, poolID);
+                                } else {
+                                    throw new Exception ("Arrival is not thrown by arrival to the federation");
+                                }
+                                arrivals[poolID]++;
+                                batchArr += 1;
+                                batchArrCloud[poolID] += 1;
+                                if (batchArr >= batching) {
+                                    batchListRej.add(batchRej/(double)batchArr);
+                                    batchListFor.add(batchFor/(double)batchArr);
+                                    batchArr = 0;
+                                    batchRej = 0;
+                                    batchFor = 0;
+                                }
+                                if (batchArrCloud[poolID] >= batching) {
+                                    batchListRejCloud[poolID].add(batchRejCloud[poolID]/(double)batchArrCloud[poolID]);
+                                    batchListForCloud[poolID].add(batchForCloud[poolID]/(double)batchArrCloud[poolID]);
+                                    batchArrCloud[poolID] = 0;
+                                    batchRejCloud[poolID] = 0;
+                                    batchForCloud[poolID] = 0;
+                                }
+                                break;
+                            case DEP:
+                                if (poolID == -1) {
+                                    fedDeparturesCloud[requestToCloud.get(requestID)]++;
+                                    departures[requestToCloud.get(requestID)]++;
+                                } else {
+                                    localDepartures[poolID]+=1;
+                                    departures[poolID]+=1;
+                                }
+                                requestToCloud.remove(requestID);
+                                break;
+                            case REJ:
+                                rejections[requestToCloud.get(requestID)]++;
+                                batchRej += 1;
+                                batchRejCloud[poolID] += 1;
+                                requestToCloud.remove(requestID);
+                                break;
+                            case ENQ:
+                                break;
+                            case SER:
+                                break;
+                            case OVR: 
+                                overflow[poolID]++;
+                                batchFor += 1;
+                                batchForCloud[poolID] += 1;
+                                break;
+                        }
+                    }
+                }
+
+                //------------------------------------------------------------------------------------------------------------------------------------------
+
+                if (metricType.equals("rej")) {
+                    if (metricCloud == -1) {
+                        metricArray = batchListRej;
+                    } else {
+                        metricArray = batchListRejCloud[metricCloud];
+                    }
+                } else {
+                    if (metricCloud == -1) {
+                        metricArray = batchListFor;
+                    } else {
+                        metricArray = batchListForCloud[metricCloud];
+                    }
+                }
+                printerval(metricArray, tStat);
+                exit = correlationCheck(metricArray, tStat) && halfWidthCheck(metricArray, tStat, halfWidthReq);
+                cutoffPrime = 0;
+                System.out.println("Finished metrics");
+            }
+            System.out.println("Experiment complete");
+            return 0;
+        }
+    }
+
+    public static boolean correlationCheck (ArrayList<Double> batchList, double tStat) {
+        int k = batchList.size();
+        double yBar = 0;
+        for (int i = 0; i < k; i++) {
+            yBar += batchList.get(i);
+        }
+        yBar /= k;
+        return Math.abs(correlation(k, yBar, batchList)) < tStat;
+    }
+
+    public static boolean halfWidthCheck (ArrayList<Double> batchList, double tStat, double halfWidthReq) {
+        int k = batchList.size();
+        double yBar = 0;
+        for (int i = 0; i < k; i++) {
+            yBar += batchList.get(i);
+        }
+        yBar /= k;
+        double corr = correlation(k, yBar, batchList);
+        double var = 0;
+        for (int i = 0; i < k; i++){
+            var += Math.pow(yBar-batchList.get(i), 2);
+        }
+        var /= (k-1);
+        double stdev = Math.sqrt(var);
+        double halfWidth = tStat * stdev/Math.sqrt((double)k);
+        return halfWidth < halfWidthReq;
     }
 
     public static void main(String[] args) {
