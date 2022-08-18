@@ -1102,6 +1102,7 @@ public class Main {
                 String[] data = {lamb.get(0), x.get(0), n.get(0), Q.get(0), /*mst.get(0)*/"1", lamb.get(1), x.get(1), n.get(1), Q.get(1), /*mst.get(1)*/"1", overflowReduction, sc_overflow1, sc_overflow2, fed_overflow1, fed_overflow2};
                 writer.writeNext(data);
                 writer.close();
+                System.out.println(x.get(0)+":"+x.get(1));
             }
             return 0;
         }
