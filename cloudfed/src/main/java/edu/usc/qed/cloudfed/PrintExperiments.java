@@ -12,7 +12,7 @@ public class PrintExperiments {
         int runID = 0;
         for (int i = 0; i <= 50; i+=2) {
             for (int j =  0; j <= 50; j+=2) {
-                String command = "java -jar target/cloudfed.jar experiment \""+runID+"\" "+runID+" \"type1:0:Exp[50]:Det[1]:Unif[1,1]|type2:1:Exp[50]:Det[1]:Unif[1,1]\" \"type1!50:1:"+i+"|type2!50:1:"+j+"\" 1000000 1000000 \"csv\" 0 0.00075 0.05 100000";
+                String command = "java -jar target/cloudfed.jar experiment \""+runID+"\" "+runID+" \"type1:0:Exp[50]:Det[1]:Unif[1,1]|type2:1:Exp[50]:Det[1]:Unif[1,1]\" \"type1!50:1:"+i+"|type2!50:1:"+j+"\" 100000 300000 \"csv\" 0 0.00075 0.05 30000";
                 bw.write(command);
                 bw.newLine();
                 runID += 1;
